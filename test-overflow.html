@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>溢出测试页面 - AI 文本解释助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+        
+        h2 {
+            color: #764ba2;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        
+        p {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .test-case {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+        
+        .test-case h3 {
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+        
+        code {
+            background: #e8f4f8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 横向滚动条溢出测试页面</h1>
+        
+        <div class="warning">
+            <strong>⚠️ 测试说明：</strong>选择下面的测试用例，右键点击"使用 AI 解释"，检查是否出现横向滚动条。
+        </div>
+        
+        <h2>测试用例 1: 超长链接</h2>
+        <div class="test-case">
+            <h3>无空格的超长 URL</h3>
+            <p>
+                这是一个很长的链接示例：https://www.example.com/very/long/path/with/many/segments/that/could/potentially/cause/horizontal/scrolling/in/the/sidebar/if/not/handled/properly/with/css/overflow/properties
+            </p>
+        </div>
+        
+        <h2>测试用例 2: 超长代码行</h2>
+        <div class="test-case">
+            <h3>单行超长代码</h3>
+            <p>
+                请解释这段代码：<code>const veryLongVariableNameThatGoesOnAndOnAndOnAndShouldNotCauseHorizontalScrollingInTheSidebarButShouldWrapProperly = someFunction(withManyParameters, andMoreParameters, evenMoreParameters, andStillMore);</code>
+            </p>
+        </div>
+        
+        <h2>测试用例 3: 连续无空格字符</h2>
+        <div class="test-case">
+            <h3>无断点的长字符串</h3>
+            <p>
+                这是一个测试文本abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789012345678901234567890
+            </p>
+        </div>
+        
+        <h2>测试用例 4: 长英文单词</h2>
+        <div class="test-case">
+            <h3>超长单词</h3>
+            <p>
+                请解释 pneumonoultramicroscopicsilicovolcanoconiosis 这个单词的含义，以及 supercalifragilisticexpialidocious 这个词的来源。
+            </p>
+        </div>
+        
+        <h2>测试用例 5: 表格数据（让 AI 生成）</h2>
+        <div class="test-case">
+            <h3>要求 AI 生成宽表格</h3>
+            <p>
+                请创建一个包含 8 列的对比表格，比较不同编程语言的特性，包括 Python、JavaScript、Java、C++、Go、Rust、TypeScript 和 Kotlin。
+            </p>
+        </div>
+        
+        <h2>测试用例 6: 代码块（让 AI 生成）</h2>
+        <div class="test-case">
+            <h3>要求 AI 生成长代码</h3>
+            <p>
+                请写一个包含很长单行代码的 JavaScript 函数示例，例如链式调用或复杂的一行表达式。
+            </p>
+        </div>
+        
+        <h2>测试用例 7: Base64 字符串</h2>
+        <div class="test-case">
+            <h3>长 Base64 编码</h3>
+            <p>
+                请解释这个 Base64 字符串：data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            </p>
+        </div>
+        
+        <h2>测试用例 8: 数学公式</h2>
+        <div class="test-case">
+            <h3>长数学表达式</h3>
+            <p>
+                请解释：f(x) = a₀ + a₁x + a₂x² + a₃x³ + a₄x⁴ + a₅x⁵ + a₆x⁶ + a₇x⁷ + a₈x⁸ + a₉x⁹ + a₁₀x¹⁰ 这个多项式函数
+            </p>
+        </div>
+        
+        <h2>测试用例 9: JSON 数据</h2>
+        <div class="test-case">
+            <h3>长 JSON 字符串</h3>
+            <p>
+                请格式化：{"name":"test","description":"thisisaverylongdescriptionwithoutanyspacesthatcouldpotentiallycausehorizontalscrollingifnothandledproperly","value":123456789}
+            </p>
+        </div>
+        
+        <h2>测试用例 10: 混合内容</h2>
+        <div class="test-case">
+            <h3>包含多种元素</h3>
+            <p>
+                请详细解释 React 中的 useEffect hook，包括：
+                1. 基本用法和语法
+                2. 依赖数组的作用
+                3. 清理函数
+                4. 常见的使用场景
+                5. 性能优化建议
+                
+                同时请提供代码示例，并创建一个表格对比 useEffect、useMemo 和 useCallback 的区别。
+                
+                另外，请解释这个错误信息：ReferenceError: regeneratorRuntime is not defined at Object.eval (webpack-internal:///./node_modules/@babel/runtime/helpers/esm/asyncToGenerator.js:3:15)
+            </p>
+        </div>
+        
+        <h2>✅ 预期结果</h2>
+        <div class="test-case">
+            <p><strong>所有测试用例都应该：</strong></p>
+            <ul>
+                <li>✓ 不出现横向滚动条（整体容器）</li>
+                <li>✓ 文本正常换行</li>
+                <li>✓ 长链接自动断行</li>
+                <li>✓ 代码块内部可以横向滚动（这是正常的）</li>
+                <li>✓ 表格内部可以横向滚动（这是正常的）</li>
+                <li>✓ 行内代码自动换行或断行</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
