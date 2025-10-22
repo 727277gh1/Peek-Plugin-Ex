@@ -37,7 +37,7 @@
    - **API 密钥**: 你的 API Key
    - **模型**: 例如 `gpt-3.5-turbo` 或 `gpt-4`
    - **Temperature**: 控制回复的随机性（0-2）
-   - **最大 Tokens**: 回复的最大长度
+   - **最大 Tokens**: 回复的最大长度（根据模型限制设置，详见 [MODEL_LIMITS.md](MODEL_LIMITS.md)）
 3. 配置提示词（可选）：
    - **系统提示词**: 定义 AI 的角色和行为
    - **用户提示词模板**: 使用 `{selectedText}` 作为选中文本的占位符
@@ -83,6 +83,24 @@ API 密钥: your-azure-api-key
 - Claude (通过 AWS Bedrock)
 - 本地部署的 LLM (如 Ollama、LocalAI)
 - 其他第三方服务
+
+## 🎯 Token 限制说明
+
+不同模型有不同的 token 限制，设置时需要注意：
+
+| 模型类型 | 总限制 | 推荐配置 |
+|---------|--------|----------|
+| GPT-3.5-turbo | 4,096 | 2,000 |
+| GPT-4 | 8,192 | 4,000 |
+| GPT-4-turbo | 128,000 | 64,000 |
+| Claude-3 | 200,000 | 100,000 |
+| Gemini-1.5-pro | 1,048,576 | 500,000 |
+
+**注意**：总 token 数 = 输入 tokens + 输出 tokens
+
+建议的最大 Tokens 设置为模型限制的 50-70%，为输入内容预留空间。
+
+详细的模型限制和配置建议请参考 [MODEL_LIMITS.md](MODEL_LIMITS.md)。
 
 ## 📝 提示词模板示例
 
