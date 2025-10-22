@@ -46,6 +46,22 @@
       </div>
 
       <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enable-stream" checked>
+          <span>启用流式输出</span>
+        </label>
+        <span class="help-text">实时显示 AI 回复（推荐）</span>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enable-reasoning">
+          <span>开启思考链</span>
+        </label>
+        <span class="help-text">让 AI 展示推理过程（仅支持特定模型如 o1）</span>
+      </div>
+
+      <div class="form-group">
         <label for="system-prompt">系统提示词</label>
         <textarea id="system-prompt" rows="3" placeholder="你是一个专业的助手..."></textarea>
         <span class="help-text">定义 AI 的行为和角色</span>

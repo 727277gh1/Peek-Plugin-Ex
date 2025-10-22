@@ -1,9 +1,16 @@
 let sidebar = null;
 let conversationHistory = [];
+let isMinimized = false;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "openSidebar") {
     openSidebar(request.selectedText);
+  } else if (request.action === "streamChunk") {
+    handleStreamChunk(request.messageId, request.content);
+  } else if (request.action === "streamComplete") {
+    handleStreamComplete(request.messageId);
+  } else if (request.action === "streamError") {
+    handleStreamError(request.messageId, request.error);
   }
 });
 
@@ -13,6 +20,8 @@ function openSidebar(selectedText) {
   }
   
   sidebar.style.display = 'flex';
+  isMinimized = false;
+  sidebar.classList.remove('minimized');
   
   conversationHistory = [];
   
@@ -30,7 +39,10 @@ function createSidebar() {
   sidebar.innerHTML = `
     <div class="ai-sidebar-header">
       <h3>AI 助手</h3>
-      <button id="ai-close-btn" class="ai-close-btn">✕</button>
+      <div class="ai-header-buttons">
+        <button id="ai-minimize-btn" class="ai-icon-btn" title="最小化">−</button>
+        <button id="ai-close-btn" class="ai-icon-btn" title="关闭">✕</button>
+      </div>
     </div>
     <div class="ai-sidebar-content">
       <div id="ai-messages" class="ai-messages"></div>
@@ -47,6 +59,16 @@ function createSidebar() {
     sidebar.style.display = 'none';
   });
   
+  sidebar.querySelector('#ai-minimize-btn').addEventListener('click', () => {
+    toggleMinimize();
+  });
+  
+  sidebar.querySelector('#ai-sidebar-header')?.addEventListener('click', (e) => {
+    if (isMinimized && e.target.classList.contains('ai-sidebar-header')) {
+      toggleMinimize();
+    }
+  });
+  
   sidebar.querySelector('#ai-send-btn').addEventListener('click', () => {
     sendMessage();
   });
@@ -57,6 +79,15 @@ function createSidebar() {
       sendMessage();
     }
   });
+}
+
+function toggleMinimize() {
+  isMinimized = !isMinimized;
+  if (isMinimized) {
+    sidebar.classList.add('minimized');
+  } else {
+    sidebar.classList.remove('minimized');
+  }
 }
 
 function sendMessage() {
@@ -100,35 +131,65 @@ async function callAI(userMessage, isInitialExplain = false) {
     const config = await getConfig();
     
     if (!config.apiKey || !config.apiUrl) {
-      updateMessage(loadingId, '错误：请先在插件设置中配置 API 密钥和接口地址');
+      updateMessage(loadingId, '错误：请先在插件设置中配置 API 密钥和接口地址', true);
       return;
     }
     
-    const response = await new Promise((resolve, reject) => {
+    if (config.enableStream) {
       chrome.runtime.sendMessage({
-        action: "callOpenAI",
+        action: "callOpenAIStream",
         apiConfig: config,
-        messages: conversationHistory
-      }, (response) => {
-        if (response.success) {
-          resolve(response.data);
-        } else {
-          reject(new Error(response.error));
-        }
+        messages: conversationHistory,
+        messageId: loadingId
       });
-    });
-    
-    conversationHistory.push({ role: 'assistant', content: response });
-    updateMessage(loadingId, response);
+    } else {
+      const response = await new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          action: "callOpenAI",
+          apiConfig: config,
+          messages: conversationHistory
+        }, (response) => {
+          if (response.success) {
+            resolve(response.data);
+          } else {
+            reject(new Error(response.error));
+          }
+        });
+      });
+      
+      conversationHistory.push({ role: 'assistant', content: response });
+      updateMessage(loadingId, response, true);
+    }
     
   } catch (error) {
-    updateMessage(loadingId, `错误：${error.message}`);
+    updateMessage(loadingId, `错误：${error.message}`, false);
   }
+}
+
+let streamContent = {};
+
+function handleStreamChunk(messageId, content) {
+  if (!streamContent[messageId]) {
+    streamContent[messageId] = '';
+  }
+  streamContent[messageId] += content;
+  updateMessage(messageId, streamContent[messageId], true);
+}
+
+function handleStreamComplete(messageId) {
+  const finalContent = streamContent[messageId] || '';
+  conversationHistory.push({ role: 'assistant', content: finalContent });
+  delete streamContent[messageId];
+}
+
+function handleStreamError(messageId, error) {
+  updateMessage(messageId, `错误：${error}`, false);
+  delete streamContent[messageId];
 }
 
 function addMessage(role, content) {
   const messagesContainer = sidebar.querySelector('#ai-messages');
-  const messageId = `msg-${Date.now()}`;
+  const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
   const messageDiv = document.createElement('div');
   messageDiv.className = `ai-message ai-message-${role}`;
@@ -140,7 +201,12 @@ function addMessage(role, content) {
   
   const contentDiv = document.createElement('div');
   contentDiv.className = 'ai-message-content';
-  contentDiv.textContent = content;
+  
+  if (role === 'user') {
+    contentDiv.textContent = content;
+  } else {
+    contentDiv.innerHTML = parseMarkdown(content);
+  }
   
   messageDiv.appendChild(roleLabel);
   messageDiv.appendChild(contentDiv);
@@ -151,11 +217,16 @@ function addMessage(role, content) {
   return messageId;
 }
 
-function updateMessage(messageId, content) {
+function updateMessage(messageId, content, useMarkdown = false) {
   const messageDiv = document.getElementById(messageId);
   if (messageDiv) {
     const contentDiv = messageDiv.querySelector('.ai-message-content');
-    contentDiv.textContent = content;
+    
+    if (useMarkdown) {
+      contentDiv.innerHTML = parseMarkdown(content);
+    } else {
+      contentDiv.textContent = content;
+    }
     
     const messagesContainer = sidebar.querySelector('#ai-messages');
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -170,6 +241,8 @@ async function getConfig() {
       model: 'gpt-3.5-turbo',
       temperature: 0.7,
       maxTokens: 2000,
+      enableStream: true,
+      enableReasoning: false,
       systemPrompt: '你是一个专业的助手，帮助用户理解和解释文本内容。',
       userPrompt: '请解释以下内容：\n\n{selectedText}'
     }, resolve);
