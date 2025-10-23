@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>滚动测试页面 - AI 文本解释助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            padding: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+        
+        h2 {
+            color: #764ba2;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        
+        p {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .test-case {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+        
+        .instruction {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .success {
+            background: #d4edda;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #28a745;
+        }
+        
+        code {
+            background: #e8f4f8;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📜 滚动行为测试</h1>
+        
+        <div class="instruction">
+            <h3>测试目标：验证滚动条位置正确</h3>
+            <p><strong>预期行为：</strong></p>
+            <ul>
+                <li>✅ 滚动条应该出现在侧边栏的 <code>#ai-messages</code> 容器右侧</li>
+                <li>✅ 整个对话历史一起滚动</li>
+                <li>✅ 单条消息内部不应该有纵向滚动条</li>
+                <li>✅ 长消息内容应该完整显示</li>
+            </ul>
+        </div>
+        
+        <h2>测试用例 1：生成多条消息</h2>
+        <div class="test-case">
+            <p>请解释以下 10 个编程概念，每个概念单独回复一条消息：</p>
+            <ol>
+                <li>什么是闭包？</li>
+                <li>什么是原型链？</li>
+                <li>什么是事件循环？</li>
+                <li>什么是异步编程？</li>
+                <li>什么是 Promise？</li>
+                <li>什么是 async/await？</li>
+                <li>什么是虚拟 DOM？</li>
+                <li>什么是组件化？</li>
+                <li>什么是状态管理？</li>
+                <li>什么是响应式编程？</li>
+            </ol>
+            <p><strong>预期：</strong>应该能看到右侧滚动条，可以滚动查看所有回复</p>
+        </div>
+        
+        <h2>测试用例 2：单条长消息</h2>
+        <div class="test-case">
+            <p>请详细解释 JavaScript 的事件循环机制，包括：</p>
+            <ul>
+                <li>调用栈的工作原理</li>
+                <li>任务队列和微任务队列</li>
+                <li>宏任务和微任务的区别</li>
+                <li>执行顺序</li>
+                <li>常见示例</li>
+                <li>在浏览器和 Node.js 中的差异</li>
+                <li>实际应用场景</li>
+                <li>性能优化建议</li>
+            </ul>
+            <p>请提供详细的解释和代码示例。</p>
+            <p><strong>预期：</strong>长消息应该完整显示，不在消息内部产生滚动条</p>
+        </div>
+        
+        <h2>测试用例 3：包含代码块的长消息</h2>
+        <div class="test-case">
+            <p>请写一个完整的 React 组件示例，包含：</p>
+            <ul>
+                <li>useState 的使用</li>
+                <li>useEffect 的使用</li>
+                <li>事件处理</li>
+                <li>条件渲染</li>
+                <li>列表渲染</li>
+            </ul>
+            <p>并解释每部分的作用。</p>
+            <p><strong>预期：</strong>代码块内部可以横向滚动（如果代码行很长），但消息整体不应该有纵向滚动条</p>
+        </div>
+        
+        <h2>测试用例 4：连续多轮对话</h2>
+        <div class="test-case">
+            <p>选择这段文本，然后进行多轮对话：</p>
+            <p>
+                请解释 TypeScript 的类型系统。然后回答以下问题：
+            </p>
+            <ol>
+                <li>什么是类型推断？（发送第一条消息）</li>
+                <li>什么是泛型？（发送第二条消息）</li>
+                <li>什么是联合类型？（发送第三条消息）</li>
+                <li>什么是交叉类型？（发送第四条消息）</li>
+                <li>什么是类型守卫？（发送第五条消息）</li>
+            </ol>
+            <p><strong>预期：</strong>多轮对话后，可以通过右侧滚动条查看历史消息</p>
+        </div>
+        
+        <h2>测试用例 5：包含表格的消息</h2>
+        <div class="test-case">
+            <p>请创建一个详细的表格，对比以下前端框架：</p>
+            <ul>
+                <li>React</li>
+                <li>Vue</li>
+                <li>Angular</li>
+                <li>Svelte</li>
+                <li>Solid</li>
+            </ul>
+            <p>对比维度包括：学习曲线、性能、生态系统、社区支持、企业采用率、包大小、开发体验、TypeScript 支持。</p>
+            <p><strong>预期：</strong>表格可以内部横向滚动，但不影响整体纵向滚动</p>
+        </div>
+        
+        <div class="success">
+            <h3>✅ 验证要点</h3>
+            <ul>
+                <li><strong>滚动条位置：</strong>在侧边栏右边缘（#ai-messages 容器）</li>
+                <li><strong>滚动行为：</strong>整个对话区域一起滚动</li>
+                <li><strong>消息显示：</strong>每条消息完整显示，不被截断</li>
+                <li><strong>内容换行：</strong>长文本自动换行，不出现横向滚动条</li>
+                <li><strong>代码块：</strong>可以内部横向滚动（正常行为）</li>
+                <li><strong>表格：</strong>可以内部横向滚动（正常行为）</li>
+                <li><strong>自动滚动：</strong>新消息出现时自动滚动到底部</li>
+            </ul>
+        </div>
+        
+        <h2>❌ 错误情况（如果出现请报告）</h2>
+        <div class="test-case">
+            <ul>
+                <li>❌ 每条消息内部有纵向滚动条</li>
+                <li>❌ 无法看到外部的滚动条</li>
+                <li>❌ 消息内容被截断</li>
+                <li>❌ 无法滚动查看历史消息</li>
+                <li>❌ 整个侧边栏出现横向滚动条</li>
+            </ul>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>🔍 调试提示</h2>
+        <p>如果遇到问题，可以：</p>
+        <ol>
+            <li>打开浏览器开发者工具（F12）</li>
+            <li>选择"元素"（Elements）标签</li>
+            <li>找到 <code>#ai-messages</code> 元素</li>
+            <li>检查其 CSS 属性：
+                <ul>
+                    <li><code>overflow-y: auto</code> ✓</li>
+                    <li><code>flex: 1</code> ✓</li>
+                </ul>
+            </li>
+            <li>找到 <code>.ai-message</code> 元素</li>
+            <li>检查其 CSS 属性：
+                <ul>
+                    <li>不应该有 <code>overflow: hidden</code> ✓</li>
+                    <li>应该有 <code>max-width: 100%</code> ✓</li>
+                </ul>
+            </li>
+            <li>找到 <code>.ai-message-content</code> 元素</li>
+            <li>检查其 CSS 属性：
+                <ul>
+                    <li><code>overflow-x: hidden</code> ✓</li>
+                    <li><code>max-width: 100%</code> ✓</li>
+                    <li>不应该有 <code>overflow-y</code> 设置 ✓</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+</body>
+</html>
