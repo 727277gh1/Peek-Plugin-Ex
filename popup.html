@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 助手设置</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>🤖 AI 助手设置</h2>
+      <p class="subtitle">配置你的 OpenAI 兼容接口</p>
+    </div>
+    
+    <form id="config-form">
+      <div class="form-group">
+        <label for="api-url">API 接口地址</label>
+        <input type="text" id="api-url" placeholder="https://api.openai.com/v1/chat/completions" required>
+        <span class="help-text">支持 OpenAI 兼容的接口</span>
+      </div>
+
+      <div class="form-group">
+        <label for="api-key">API 密钥</label>
+        <input type="password" id="api-key" placeholder="sk-..." required>
+        <span class="help-text">你的 API Key</span>
+      </div>
+
+      <div class="form-group">
+        <label for="model">模型</label>
+        <input type="text" id="model" placeholder="gpt-3.5-turbo" required>
+        <span class="help-text">使用的模型名称</span>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="temperature">Temperature</label>
+          <input type="number" id="temperature" min="0" max="2" step="0.1" value="0.7">
+        </div>
+
+        <div class="form-group">
+          <label for="max-tokens">最大 Tokens</label>
+          <input type="number" id="max-tokens" min="100" max="200000" step="100" value="2000">
+          <span class="help-text">根据模型限制设置（如 GPT-4: 8192, Claude: 200000）</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enable-stream" checked>
+          <span>启用流式输出</span>
+        </label>
+        <span class="help-text">实时显示 AI 回复（推荐）</span>
+      </div>
+
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enable-reasoning">
+          <span>开启思考链</span>
+        </label>
+        <span class="help-text">让 AI 展示推理过程（仅支持特定模型如 o1）</span>
+      </div>
+
+      <div class="form-group">
+        <label for="system-prompt">系统提示词</label>
+        <textarea id="system-prompt" rows="3" placeholder="你是一个专业的助手..."></textarea>
+        <span class="help-text">定义 AI 的行为和角色</span>
+      </div>
+
+      <div class="form-group">
+        <label for="user-prompt">用户提示词模板</label>
+        <textarea id="user-prompt" rows="4" placeholder="请解释以下内容：&#10;&#10;{selectedText}"></textarea>
+        <span class="help-text">使用 {selectedText} 作为选中文本的占位符</span>
+      </div>
+
+      <div class="button-group">
+        <button type="submit" class="btn btn-primary">保存设置</button>
+        <button type="button" id="test-btn" class="btn btn-secondary">测试连接</button>
+      </div>
+
+      <div id="message" class="message"></div>
+    </form>
+
+    <div class="footer">
+      <p class="usage-tip">💡 <strong>使用提示：</strong>选择网页上的文本，右键点击"使用 AI 解释"</p>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

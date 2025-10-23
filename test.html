@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试页面 - AI 文本解释助手</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.8;
+            padding: 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 32px;
+        }
+        
+        h2 {
+            color: #764ba2;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        
+        p {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        
+        .code-block {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            margin: 20px 0;
+        }
+        
+        .instruction {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .instruction h3 {
+            color: #1976D2;
+            margin-bottom: 10px;
+        }
+        
+        ul {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 欢迎使用 AI 文本解释助手</h1>
+        
+        <div class="instruction">
+            <h3>📖 使用说明</h3>
+            <p>选择下面的任何文本，右键点击，然后选择 <strong>"使用 AI 解释"</strong> 来测试插件功能。</p>
+        </div>
+        
+        <h2>什么是机器学习？</h2>
+        <p>
+            <span class="highlight">机器学习</span>是人工智能的一个分支，它使计算机能够在没有明确编程的情况下学习和改进。
+            机器学习算法使用统计技术，使计算机能够从数据中"学习"，即逐渐提高在特定任务上的性能。
+        </p>
+        
+        <h2>深度学习的应用</h2>
+        <p>
+            深度学习是机器学习的一个子集，它使用多层神经网络来学习数据的表示。深度学习在许多领域都有广泛的应用，包括：
+        </p>
+        <ul>
+            <li><strong>计算机视觉</strong>：图像识别、物体检测、人脸识别等</li>
+            <li><strong>自然语言处理</strong>：机器翻译、文本生成、情感分析等</li>
+            <li><strong>语音识别</strong>：语音转文字、语音助手等</li>
+            <li><strong>推荐系统</strong>：个性化推荐、内容过滤等</li>
+        </ul>
+        
+        <div class="code-block">
+            <p><strong>示例代码片段：</strong></p>
+            <p>
+                在 Python 中，使用 TensorFlow 创建一个简单的神经网络模型：<br>
+                <code>model = tf.keras.Sequential([...])</code>
+            </p>
+        </div>
+        
+        <h2>量子计算</h2>
+        <p>
+            量子计算是一种基于量子力学原理的计算范式。与传统计算机使用比特（0 或 1）不同，
+            量子计算机使用量子比特（qubit），它可以同时处于 0 和 1 的叠加状态。
+            这种特性使得量子计算机在某些特定问题上具有指数级的加速能力。
+        </p>
+        
+        <h2>区块链技术</h2>
+        <p>
+            区块链是一种分布式账本技术，它通过密码学方法将数据以区块的形式链接起来。
+            每个区块包含一组交易记录，并通过哈希值与前一个区块连接。
+            这种结构使得数据难以被篡改，具有高度的安全性和透明度。
+        </p>
+        
+        <h2>云计算的优势</h2>
+        <p>
+            云计算提供了按需访问计算资源的能力，主要优势包括：
+        </p>
+        <ul>
+            <li>弹性可扩展性：根据需求动态调整资源</li>
+            <li>成本效益：按使用量付费，无需前期投资</li>
+            <li>高可用性：多地域部署，确保服务连续性</li>
+            <li>快速部署：几分钟内即可启动新的服务</li>
+        </ul>
+        
+        <div class="instruction">
+            <h3>💡 提示</h3>
+            <p>你可以尝试：</p>
+            <ul>
+                <li>选择一个技术术语，让 AI 解释它</li>
+                <li>选择一段复杂的描述，让 AI 简化说明</li>
+                <li>选择英文内容，让 AI 翻译并解释</li>
+                <li>在侧边栏中继续与 AI 对话，深入了解话题</li>
+            </ul>
+        </div>
+        
+        <h2>边缘计算</h2>
+        <p>
+            边缘计算是一种分布式计算范式，它将数据处理和存储从云端移到网络边缘，
+            靠近数据源的位置。这种方法可以减少延迟、节省带宽，并提高实时性。
+            边缘计算在物联网、自动驾驶、工业自动化等领域有重要应用。
+        </p>
+    </div>
+</body>
+</html>
