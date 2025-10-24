@@ -19,7 +19,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "callOpenAI") {
-    callOpenAI(request.apiConfig, request.messages)
+    callOpenAI(request.apiConfig, request.messages, request.tools)
       .then(response => sendResponse({ success: true, data: response }))
       .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
@@ -31,7 +31,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 async function handleStreamRequest(request, sender) {
   try {
-    const { apiConfig, messages, messageId } = request;
+    const { apiConfig, messages, messageId, tools } = request;
     
     const requestBody = {
       model: apiConfig.model,
@@ -43,6 +43,11 @@ async function handleStreamRequest(request, sender) {
     
     if (apiConfig.enableReasoning) {
       requestBody.reasoning_effort = 'high';
+    }
+    
+    if (tools && tools.length > 0) {
+      requestBody.tools = tools;
+      requestBody.tool_choice = 'auto';
     }
     
     const response = await fetch(apiConfig.apiUrl, {
@@ -91,13 +96,32 @@ async function handleStreamRequest(request, sender) {
           
           try {
             const parsed = JSON.parse(data);
-            const content = parsed.choices?.[0]?.delta?.content;
+            const delta = parsed.choices?.[0]?.delta;
+            const content = delta?.content;
+            const reasoningContent = delta?.reasoning_content;
+            const toolCalls = delta?.tool_calls;
+            
+            if (reasoningContent) {
+              chrome.tabs.sendMessage(sender.tab.id, {
+                action: "streamReasoningChunk",
+                messageId: messageId,
+                content: reasoningContent
+              });
+            }
             
             if (content) {
               chrome.tabs.sendMessage(sender.tab.id, {
                 action: "streamChunk",
                 messageId: messageId,
                 content: content
+              });
+            }
+            
+            if (toolCalls) {
+              chrome.tabs.sendMessage(sender.tab.id, {
+                action: "streamToolCalls",
+                messageId: messageId,
+                toolCalls: toolCalls
               });
             }
           } catch (e) {
@@ -121,7 +145,7 @@ async function handleStreamRequest(request, sender) {
   }
 }
 
-async function callOpenAI(apiConfig, messages) {
+async function callOpenAI(apiConfig, messages, tools) {
   const requestBody = {
     model: apiConfig.model,
     messages: messages,
@@ -131,6 +155,11 @@ async function callOpenAI(apiConfig, messages) {
   
   if (apiConfig.enableReasoning) {
     requestBody.reasoning_effort = 'high';
+  }
+  
+  if (tools && tools.length > 0) {
+    requestBody.tools = tools;
+    requestBody.tool_choice = 'auto';
   }
   
   const response = await fetch(apiConfig.apiUrl, {
@@ -148,5 +177,9 @@ async function callOpenAI(apiConfig, messages) {
   }
 
   const data = await response.json();
-  return data.choices[0].message.content;
+  return {
+    content: data.choices[0].message.content,
+    reasoningContent: data.choices[0].message.reasoning_content,
+    toolCalls: data.choices[0].message.tool_calls
+  };
 }

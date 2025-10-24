@@ -1,12 +1,19 @@
 let sidebar = null;
 let conversationHistory = [];
 let isMinimized = false;
+let isFirstRequest = true;
+let userScrolledUp = false;
+let autoScrollEnabled = true;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "openSidebar") {
     openSidebar(request.selectedText);
   } else if (request.action === "streamChunk") {
     handleStreamChunk(request.messageId, request.content);
+  } else if (request.action === "streamReasoningChunk") {
+    handleStreamReasoningChunk(request.messageId, request.content);
+  } else if (request.action === "streamToolCalls") {
+    handleStreamToolCalls(request.messageId, request.toolCalls);
   } else if (request.action === "streamComplete") {
     handleStreamComplete(request.messageId);
   } else if (request.action === "streamError") {
@@ -24,6 +31,7 @@ function openSidebar(selectedText) {
   sidebar.classList.remove('minimized');
   
   conversationHistory = [];
+  isFirstRequest = true;
   
   const messagesContainer = sidebar.querySelector('#ai-messages');
   messagesContainer.innerHTML = '';
@@ -45,7 +53,13 @@ function createSidebar() {
       </div>
     </div>
     <div class="ai-sidebar-content">
-      <div id="ai-messages" class="ai-messages"></div>
+      <div id="ai-messages" class="ai-messages">
+        <button id="ai-scroll-to-bottom" class="ai-scroll-to-bottom" title="滚动到底部" style="display: none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+          </svg>
+        </button>
+      </div>
       <div class="ai-input-container">
         <textarea id="ai-input" class="ai-input" placeholder="输入消息..." rows="3"></textarea>
         <button id="ai-send-btn" class="ai-send-btn">发送</button>
@@ -79,6 +93,44 @@ function createSidebar() {
       sendMessage();
     }
   });
+  
+  const messagesContainer = sidebar.querySelector('#ai-messages');
+  const scrollButton = sidebar.querySelector('#ai-scroll-to-bottom');
+  
+  messagesContainer.addEventListener('scroll', () => {
+    const threshold = 100;
+    const isNearBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < threshold;
+    
+    userScrolledUp = !isNearBottom;
+    
+    if (scrollButton) {
+      scrollButton.style.display = userScrolledUp ? 'flex' : 'none';
+    }
+  });
+  
+  scrollButton.addEventListener('click', () => {
+    scrollToBottom(true);
+    userScrolledUp = false;
+    scrollButton.style.display = 'none';
+  });
+  
+  loadAutoScrollConfig();
+}
+
+async function loadAutoScrollConfig() {
+  const config = await getConfig();
+  autoScrollEnabled = config.enableAutoScroll !== false;
+}
+
+function scrollToBottom(force = false) {
+  if (!sidebar) return;
+  
+  const messagesContainer = sidebar.querySelector('#ai-messages');
+  if (!messagesContainer) return;
+  
+  if (force || (autoScrollEnabled && !userScrolledUp)) {
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
 }
 
 function toggleMinimize() {
@@ -135,19 +187,42 @@ async function callAI(userMessage, isInitialExplain = false) {
       return;
     }
     
+    let tools = null;
+    if (isFirstRequest && config.enableOnlineSearch) {
+      tools = [{
+        type: "function",
+        function: {
+          name: "online_search",
+          description: "Search the internet for current information",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "The search query"
+              }
+            },
+            required: ["query"]
+          }
+        }
+      }];
+    }
+    
     if (config.enableStream) {
       chrome.runtime.sendMessage({
         action: "callOpenAIStream",
         apiConfig: config,
         messages: conversationHistory,
-        messageId: loadingId
+        messageId: loadingId,
+        tools: tools
       });
     } else {
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           action: "callOpenAI",
           apiConfig: config,
-          messages: conversationHistory
+          messages: conversationHistory,
+          tools: tools
         }, (response) => {
           if (response.success) {
             resolve(response.data);
@@ -157,9 +232,15 @@ async function callAI(userMessage, isInitialExplain = false) {
         });
       });
       
-      conversationHistory.push({ role: 'assistant', content: response });
-      updateMessage(loadingId, response, true);
+      if (response.reasoningContent) {
+        updateMessageWithReasoning(loadingId, response.reasoningContent, response.content, true);
+      } else {
+        updateMessage(loadingId, response.content, true);
+      }
+      conversationHistory.push({ role: 'assistant', content: response.content });
     }
+    
+    isFirstRequest = false;
     
   } catch (error) {
     updateMessage(loadingId, `错误：${error.message}`, false);
@@ -167,24 +248,58 @@ async function callAI(userMessage, isInitialExplain = false) {
 }
 
 let streamContent = {};
+let streamReasoningContent = {};
+let streamToolCalls = {};
 
 function handleStreamChunk(messageId, content) {
   if (!streamContent[messageId]) {
     streamContent[messageId] = '';
   }
   streamContent[messageId] += content;
-  updateMessage(messageId, streamContent[messageId], true);
+  updateStreamMessage(messageId);
+}
+
+function handleStreamReasoningChunk(messageId, content) {
+  if (!streamReasoningContent[messageId]) {
+    streamReasoningContent[messageId] = '';
+  }
+  streamReasoningContent[messageId] += content;
+  updateStreamMessage(messageId);
+}
+
+function handleStreamToolCalls(messageId, toolCalls) {
+  if (!streamToolCalls[messageId]) {
+    streamToolCalls[messageId] = [];
+  }
+  streamToolCalls[messageId] = toolCalls;
+  updateStreamMessage(messageId);
+}
+
+function updateStreamMessage(messageId) {
+  const reasoning = streamReasoningContent[messageId] || '';
+  const content = streamContent[messageId] || '';
+  
+  if (reasoning) {
+    updateMessageWithReasoning(messageId, reasoning, content, true);
+  } else {
+    updateMessage(messageId, content, true);
+  }
 }
 
 function handleStreamComplete(messageId) {
   const finalContent = streamContent[messageId] || '';
   conversationHistory.push({ role: 'assistant', content: finalContent });
   delete streamContent[messageId];
+  delete streamReasoningContent[messageId];
+  delete streamToolCalls[messageId];
+  isFirstRequest = false;
 }
 
 function handleStreamError(messageId, error) {
   updateMessage(messageId, `错误：${error}`, false);
   delete streamContent[messageId];
+  delete streamReasoningContent[messageId];
+  delete streamToolCalls[messageId];
 }
 
 function addMessage(role, content) {
@@ -199,6 +314,9 @@ function addMessage(role, content) {
   roleLabel.className = 'ai-message-role';
   roleLabel.textContent = role === 'user' ? '你' : 'AI';
   
+  const contentWrapper = document.createElement('div');
+  contentWrapper.className = 'ai-message-content-wrapper';
+  
   const contentDiv = document.createElement('div');
   contentDiv.className = 'ai-message-content';
   
@@ -208,11 +326,22 @@ function addMessage(role, content) {
     contentDiv.innerHTML = parseMarkdown(content);
   }
   
+  contentWrapper.appendChild(contentDiv);
+  
+  if (role === 'assistant') {
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'ai-copy-btn';
+    copyBtn.innerHTML = '📋';
+    copyBtn.title = '复制';
+    copyBtn.addEventListener('click', () => copyToClipboard(messageId));
+    contentWrapper.appendChild(copyBtn);
+  }
+  
   messageDiv.appendChild(roleLabel);
-  messageDiv.appendChild(contentDiv);
+  messageDiv.appendChild(contentWrapper);
   messagesContainer.appendChild(messageDiv);
   
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  scrollToBottom();
   
   return messageId;
 }
@@ -228,8 +357,92 @@ function updateMessage(messageId, content, useMarkdown = false) {
       contentDiv.textContent = content;
     }
     
-    const messagesContainer = sidebar.querySelector('#ai-messages');
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    scrollToBottom();
+  }
+}
+
+function updateMessageWithReasoning(messageId, reasoningContent, mainContent, useMarkdown = false) {
+  const messageDiv = document.getElementById(messageId);
+  if (messageDiv) {
+    let contentWrapper = messageDiv.querySelector('.ai-message-content-wrapper');
+    if (!contentWrapper) {
+      contentWrapper = document.createElement('div');
+      contentWrapper.className = 'ai-message-content-wrapper';
+      const oldContent = messageDiv.querySelector('.ai-message-content');
+      if (oldContent) {
+        messageDiv.removeChild(oldContent);
+      }
+      messageDiv.appendChild(contentWrapper);
+    }
+    
+    contentWrapper.innerHTML = '';
+    
+    if (reasoningContent) {
+      const reasoningDiv = document.createElement('div');
+      reasoningDiv.className = 'ai-reasoning-content';
+      const reasoningTitle = document.createElement('div');
+      reasoningTitle.className = 'ai-reasoning-title';
+      reasoningTitle.innerHTML = '💭 思考过程';
+      const reasoningText = document.createElement('div');
+      reasoningText.className = 'ai-reasoning-text';
+      reasoningText.textContent = reasoningContent;
+      reasoningDiv.appendChild(reasoningTitle);
+      reasoningDiv.appendChild(reasoningText);
+      contentWrapper.appendChild(reasoningDiv);
+    }
+    
+    if (mainContent) {
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'ai-message-content';
+      if (useMarkdown) {
+        contentDiv.innerHTML = parseMarkdown(mainContent);
+      } else {
+        contentDiv.textContent = mainContent;
+      }
+      contentWrapper.appendChild(contentDiv);
+    }
+    
+    if (!messageDiv.querySelector('.ai-copy-btn')) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'ai-copy-btn';
+      copyBtn.innerHTML = '📋';
+      copyBtn.title = '复制';
+      copyBtn.addEventListener('click', () => copyToClipboard(messageId));
+      contentWrapper.appendChild(copyBtn);
+    }
+    
+    scrollToBottom();
+  }
+}
+
+function copyToClipboard(messageId) {
+  const messageDiv = document.getElementById(messageId);
+  if (messageDiv) {
+    const contentDiv = messageDiv.querySelector('.ai-message-content');
+    const reasoningDiv = messageDiv.querySelector('.ai-reasoning-text');
+    
+    let textToCopy = '';
+    if (reasoningDiv) {
+      textToCopy += '思考过程：\n' + reasoningDiv.textContent + '\n\n';
+    }
+    if (contentDiv) {
+      textToCopy += contentDiv.textContent;
+    }
+    
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      const copyBtn = messageDiv.querySelector('.ai-copy-btn');
+      if (copyBtn) {
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '✓';
+        copyBtn.style.color = '#4caf50';
+        setTimeout(() => {
+          copyBtn.innerHTML = originalText;
+          copyBtn.style.color = '';
+        }, 2000);
+      }
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
   }
 }
 
@@ -243,6 +456,8 @@ async function getConfig() {
       maxTokens: 2000,
       enableStream: true,
       enableReasoning: false,
+      enableOnlineSearch: false,
+      enableAutoScroll: true,
       systemPrompt: '你是一个专业的助手，帮助用户理解和解释文本内容。',
       userPrompt: '请解释以下内容：\n\n{selectedText}'
     }, resolve);
