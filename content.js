@@ -1,12 +1,17 @@
 let sidebar = null;
 let conversationHistory = [];
 let isMinimized = false;
+let isFirstRequest = true;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "openSidebar") {
     openSidebar(request.selectedText);
   } else if (request.action === "streamChunk") {
     handleStreamChunk(request.messageId, request.content);
+  } else if (request.action === "streamReasoningChunk") {
+    handleStreamReasoningChunk(request.messageId, request.content);
+  } else if (request.action === "streamToolCalls") {
+    handleStreamToolCalls(request.messageId, request.toolCalls);
   } else if (request.action === "streamComplete") {
     handleStreamComplete(request.messageId);
   } else if (request.action === "streamError") {
@@ -24,6 +29,7 @@ function openSidebar(selectedText) {
   sidebar.classList.remove('minimized');
   
   conversationHistory = [];
+  isFirstRequest = true;
   
   const messagesContainer = sidebar.querySelector('#ai-messages');
   messagesContainer.innerHTML = '';
@@ -135,19 +141,42 @@ async function callAI(userMessage, isInitialExplain = false) {
       return;
     }
     
+    let tools = null;
+    if (isFirstRequest && config.enableOnlineSearch) {
+      tools = [{
+        type: "function",
+        function: {
+          name: "online_search",
+          description: "Search the internet for current information",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "The search query"
+              }
+            },
+            required: ["query"]
+          }
+        }
+      }];
+    }
+    
     if (config.enableStream) {
       chrome.runtime.sendMessage({
         action: "callOpenAIStream",
         apiConfig: config,
         messages: conversationHistory,
-        messageId: loadingId
+        messageId: loadingId,
+        tools: tools
       });
     } else {
       const response = await new Promise((resolve, reject) => {
         chrome.runtime.sendMessage({
           action: "callOpenAI",
           apiConfig: config,
-          messages: conversationHistory
+          messages: conversationHistory,
+          tools: tools
         }, (response) => {
           if (response.success) {
             resolve(response.data);
@@ -157,9 +186,15 @@ async function callAI(userMessage, isInitialExplain = false) {
         });
       });
       
-      conversationHistory.push({ role: 'assistant', content: response });
-      updateMessage(loadingId, response, true);
+      if (response.reasoningContent) {
+        updateMessageWithReasoning(loadingId, response.reasoningContent, response.content, true);
+      } else {
+        updateMessage(loadingId, response.content, true);
+      }
+      conversationHistory.push({ role: 'assistant', content: response.content });
     }
+    
+    isFirstRequest = false;
     
   } catch (error) {
     updateMessage(loadingId, `错误：${error.message}`, false);
@@ -167,24 +202,58 @@ async function callAI(userMessage, isInitialExplain = false) {
 }
 
 let streamContent = {};
+let streamReasoningContent = {};
+let streamToolCalls = {};
 
 function handleStreamChunk(messageId, content) {
   if (!streamContent[messageId]) {
     streamContent[messageId] = '';
   }
   streamContent[messageId] += content;
-  updateMessage(messageId, streamContent[messageId], true);
+  updateStreamMessage(messageId);
+}
+
+function handleStreamReasoningChunk(messageId, content) {
+  if (!streamReasoningContent[messageId]) {
+    streamReasoningContent[messageId] = '';
+  }
+  streamReasoningContent[messageId] += content;
+  updateStreamMessage(messageId);
+}
+
+function handleStreamToolCalls(messageId, toolCalls) {
+  if (!streamToolCalls[messageId]) {
+    streamToolCalls[messageId] = [];
+  }
+  streamToolCalls[messageId] = toolCalls;
+  updateStreamMessage(messageId);
+}
+
+function updateStreamMessage(messageId) {
+  const reasoning = streamReasoningContent[messageId] || '';
+  const content = streamContent[messageId] || '';
+  
+  if (reasoning) {
+    updateMessageWithReasoning(messageId, reasoning, content, true);
+  } else {
+    updateMessage(messageId, content, true);
+  }
 }
 
 function handleStreamComplete(messageId) {
   const finalContent = streamContent[messageId] || '';
   conversationHistory.push({ role: 'assistant', content: finalContent });
   delete streamContent[messageId];
+  delete streamReasoningContent[messageId];
+  delete streamToolCalls[messageId];
+  isFirstRequest = false;
 }
 
 function handleStreamError(messageId, error) {
   updateMessage(messageId, `错误：${error}`, false);
   delete streamContent[messageId];
+  delete streamReasoningContent[messageId];
+  delete streamToolCalls[messageId];
 }
 
 function addMessage(role, content) {
@@ -199,6 +268,9 @@ function addMessage(role, content) {
   roleLabel.className = 'ai-message-role';
   roleLabel.textContent = role === 'user' ? '你' : 'AI';
   
+  const contentWrapper = document.createElement('div');
+  contentWrapper.className = 'ai-message-content-wrapper';
+  
   const contentDiv = document.createElement('div');
   contentDiv.className = 'ai-message-content';
   
@@ -208,8 +280,19 @@ function addMessage(role, content) {
     contentDiv.innerHTML = parseMarkdown(content);
   }
   
+  contentWrapper.appendChild(contentDiv);
+  
+  if (role === 'assistant') {
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'ai-copy-btn';
+    copyBtn.innerHTML = '📋';
+    copyBtn.title = '复制';
+    copyBtn.addEventListener('click', () => copyToClipboard(messageId));
+    contentWrapper.appendChild(copyBtn);
+  }
+  
   messageDiv.appendChild(roleLabel);
-  messageDiv.appendChild(contentDiv);
+  messageDiv.appendChild(contentWrapper);
   messagesContainer.appendChild(messageDiv);
   
   messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -233,6 +316,92 @@ function updateMessage(messageId, content, useMarkdown = false) {
   }
 }
 
+function updateMessageWithReasoning(messageId, reasoningContent, mainContent, useMarkdown = false) {
+  const messageDiv = document.getElementById(messageId);
+  if (messageDiv) {
+    let contentWrapper = messageDiv.querySelector('.ai-message-content-wrapper');
+    if (!contentWrapper) {
+      contentWrapper = document.createElement('div');
+      contentWrapper.className = 'ai-message-content-wrapper';
+      const oldContent = messageDiv.querySelector('.ai-message-content');
+      if (oldContent) {
+        messageDiv.removeChild(oldContent);
+      }
+      messageDiv.appendChild(contentWrapper);
+    }
+    
+    contentWrapper.innerHTML = '';
+    
+    if (reasoningContent) {
+      const reasoningDiv = document.createElement('div');
+      reasoningDiv.className = 'ai-reasoning-content';
+      const reasoningTitle = document.createElement('div');
+      reasoningTitle.className = 'ai-reasoning-title';
+      reasoningTitle.innerHTML = '💭 思考过程';
+      const reasoningText = document.createElement('div');
+      reasoningText.className = 'ai-reasoning-text';
+      reasoningText.textContent = reasoningContent;
+      reasoningDiv.appendChild(reasoningTitle);
+      reasoningDiv.appendChild(reasoningText);
+      contentWrapper.appendChild(reasoningDiv);
+    }
+    
+    if (mainContent) {
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'ai-message-content';
+      if (useMarkdown) {
+        contentDiv.innerHTML = parseMarkdown(mainContent);
+      } else {
+        contentDiv.textContent = mainContent;
+      }
+      contentWrapper.appendChild(contentDiv);
+    }
+    
+    if (!messageDiv.querySelector('.ai-copy-btn')) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'ai-copy-btn';
+      copyBtn.innerHTML = '📋';
+      copyBtn.title = '复制';
+      copyBtn.addEventListener('click', () => copyToClipboard(messageId));
+      contentWrapper.appendChild(copyBtn);
+    }
+    
+    const messagesContainer = sidebar.querySelector('#ai-messages');
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+}
+
+function copyToClipboard(messageId) {
+  const messageDiv = document.getElementById(messageId);
+  if (messageDiv) {
+    const contentDiv = messageDiv.querySelector('.ai-message-content');
+    const reasoningDiv = messageDiv.querySelector('.ai-reasoning-text');
+    
+    let textToCopy = '';
+    if (reasoningDiv) {
+      textToCopy += '思考过程：\n' + reasoningDiv.textContent + '\n\n';
+    }
+    if (contentDiv) {
+      textToCopy += contentDiv.textContent;
+    }
+    
+    navigator.clipboard.writeText(textToCopy).then(() => {
+      const copyBtn = messageDiv.querySelector('.ai-copy-btn');
+      if (copyBtn) {
+        const originalText = copyBtn.innerHTML;
+        copyBtn.innerHTML = '✓';
+        copyBtn.style.color = '#4caf50';
+        setTimeout(() => {
+          copyBtn.innerHTML = originalText;
+          copyBtn.style.color = '';
+        }, 2000);
+      }
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
+  }
+}
+
 async function getConfig() {
   return new Promise((resolve) => {
     chrome.storage.sync.get({
@@ -243,6 +412,7 @@ async function getConfig() {
       maxTokens: 2000,
       enableStream: true,
       enableReasoning: false,
+      enableOnlineSearch: false,
       systemPrompt: '你是一个专业的助手，帮助用户理解和解释文本内容。',
       userPrompt: '请解释以下内容：\n\n{selectedText}'
     }, resolve);

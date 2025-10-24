@@ -12,6 +12,7 @@ async function loadConfig() {
     maxTokens: 2000,
     enableStream: true,
     enableReasoning: false,
+    enableOnlineSearch: false,
     systemPrompt: '你是一个专业的助手，帮助用户理解和解释文本内容。',
     userPrompt: '请解释以下内容：\n\n{selectedText}'
   }, (config) => {
@@ -22,6 +23,7 @@ async function loadConfig() {
     document.getElementById('max-tokens').value = config.maxTokens;
     document.getElementById('enable-stream').checked = config.enableStream;
     document.getElementById('enable-reasoning').checked = config.enableReasoning;
+    document.getElementById('enable-online-search').checked = config.enableOnlineSearch;
     document.getElementById('system-prompt').value = config.systemPrompt;
     document.getElementById('user-prompt').value = config.userPrompt;
   });
@@ -38,6 +40,7 @@ function saveConfig(e) {
     maxTokens: parseInt(document.getElementById('max-tokens').value),
     enableStream: document.getElementById('enable-stream').checked,
     enableReasoning: document.getElementById('enable-reasoning').checked,
+    enableOnlineSearch: document.getElementById('enable-online-search').checked,
     systemPrompt: document.getElementById('system-prompt').value.trim(),
     userPrompt: document.getElementById('user-prompt').value.trim()
   };
