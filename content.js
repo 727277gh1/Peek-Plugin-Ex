@@ -2,6 +2,8 @@ let sidebar = null;
 let conversationHistory = [];
 let isMinimized = false;
 let isFirstRequest = true;
+let userScrolledUp = false;
+let autoScrollEnabled = true;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "openSidebar") {
@@ -51,7 +53,13 @@ function createSidebar() {
       </div>
     </div>
     <div class="ai-sidebar-content">
-      <div id="ai-messages" class="ai-messages"></div>
+      <div id="ai-messages" class="ai-messages">
+        <button id="ai-scroll-to-bottom" class="ai-scroll-to-bottom" title="滚动到底部" style="display: none;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15"></polyline>
+          </svg>
+        </button>
+      </div>
       <div class="ai-input-container">
         <textarea id="ai-input" class="ai-input" placeholder="输入消息..." rows="3"></textarea>
         <button id="ai-send-btn" class="ai-send-btn">发送</button>
@@ -85,6 +93,44 @@ function createSidebar() {
       sendMessage();
     }
   });
+  
+  const messagesContainer = sidebar.querySelector('#ai-messages');
+  const scrollButton = sidebar.querySelector('#ai-scroll-to-bottom');
+  
+  messagesContainer.addEventListener('scroll', () => {
+    const threshold = 100;
+    const isNearBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < threshold;
+    
+    userScrolledUp = !isNearBottom;
+    
+    if (scrollButton) {
+      scrollButton.style.display = userScrolledUp ? 'flex' : 'none';
+    }
+  });
+  
+  scrollButton.addEventListener('click', () => {
+    scrollToBottom(true);
+    userScrolledUp = false;
+    scrollButton.style.display = 'none';
+  });
+  
+  loadAutoScrollConfig();
+}
+
+async function loadAutoScrollConfig() {
+  const config = await getConfig();
+  autoScrollEnabled = config.enableAutoScroll !== false;
+}
+
+function scrollToBottom(force = false) {
+  if (!sidebar) return;
+  
+  const messagesContainer = sidebar.querySelector('#ai-messages');
+  if (!messagesContainer) return;
+  
+  if (force || (autoScrollEnabled && !userScrolledUp)) {
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
 }
 
 function toggleMinimize() {
@@ -295,7 +341,7 @@ function addMessage(role, content) {
   messageDiv.appendChild(contentWrapper);
   messagesContainer.appendChild(messageDiv);
   
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  scrollToBottom();
   
   return messageId;
 }
@@ -311,8 +357,7 @@ function updateMessage(messageId, content, useMarkdown = false) {
       contentDiv.textContent = content;
     }
     
-    const messagesContainer = sidebar.querySelector('#ai-messages');
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    scrollToBottom();
   }
 }
 
@@ -366,8 +411,7 @@ function updateMessageWithReasoning(messageId, reasoningContent, mainContent, us
       contentWrapper.appendChild(copyBtn);
     }
     
-    const messagesContainer = sidebar.querySelector('#ai-messages');
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    scrollToBottom();
   }
 }
 
@@ -413,6 +457,7 @@ async function getConfig() {
       enableStream: true,
       enableReasoning: false,
       enableOnlineSearch: false,
+      enableAutoScroll: true,
       systemPrompt: '你是一个专业的助手，帮助用户理解和解释文本内容。',
       userPrompt: '请解释以下内容：\n\n{selectedText}'
     }, resolve);

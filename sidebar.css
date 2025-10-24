@@ -130,6 +130,7 @@
   background: #f8f9fa !important;
   margin: 0 !important;
   box-sizing: border-box !important;
+  position: relative !important;
 }
 
 .ai-messages::-webkit-scrollbar {
@@ -516,4 +517,56 @@
 
 .ai-copy-btn:active {
   transform: translateY(0) !important;
+}
+
+.ai-scroll-to-bottom {
+  position: absolute !important;
+  bottom: 20px !important;
+  right: 50% !important;
+  transform: translateX(50%) rotate(180deg) !important;
+  width: 44px !important;
+  height: 44px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  border: none !important;
+  border-radius: 50% !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
+  transition: all 0.3s ease !important;
+  z-index: 1000 !important;
+  color: #ffffff !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  animation: slideInButton 0.3s ease-out !important;
+  outline: none !important;
+  pointer-events: auto !important;
+}
+
+.ai-scroll-to-bottom:hover {
+  transform: translateX(50%) rotate(180deg) scale(1.1) !important;
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5) !important;
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+}
+
+.ai-scroll-to-bottom:active {
+  transform: translateX(50%) rotate(180deg) scale(0.95) !important;
+}
+
+.ai-scroll-to-bottom svg {
+  display: block !important;
+  width: 20px !important;
+  height: 20px !important;
+}
+
+@keyframes slideInButton {
+  from {
+    opacity: 0;
+    transform: translateX(50%) rotate(180deg) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(50%) rotate(180deg) translateY(0);
+  }
 }
