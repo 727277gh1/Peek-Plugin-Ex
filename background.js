@@ -10,12 +10,36 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "explainWithAI" && info.selectionText) {
     const selectedText = info.selectionText;
     
-    chrome.tabs.sendMessage(tab.id, {
-      action: "openSidebar",
-      selectedText: selectedText
-    });
+    try {
+      await ensureContentScriptLoaded(tab.id);
+      
+      chrome.tabs.sendMessage(tab.id, {
+        action: "openSidebar",
+        selectedText: selectedText
+      });
+    } catch (error) {
+      console.error('Failed to load content script:', error);
+    }
   }
 });
+
+async function ensureContentScriptLoaded(tabId) {
+  try {
+    await chrome.tabs.sendMessage(tabId, { action: "ping" });
+  } catch (error) {
+    await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      files: ['markdown.js', 'content.js']
+    });
+    
+    await chrome.scripting.insertCSS({
+      target: { tabId: tabId },
+      files: ['sidebar.css']
+    });
+    
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+}
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "callOpenAI") {

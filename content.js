@@ -6,7 +6,10 @@ let userScrolledUp = false;
 let autoScrollEnabled = true;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === "openSidebar") {
+  if (request.action === "ping") {
+    sendResponse({ status: "ok" });
+    return true;
+  } else if (request.action === "openSidebar") {
     openSidebar(request.selectedText);
   } else if (request.action === "streamChunk") {
     handleStreamChunk(request.messageId, request.content);
