@@ -1,21 +1,97 @@
+let debugLogEnabled = false;
+
+chrome.storage.sync.get({ enableDebugLog: false }, (config) => {
+  debugLogEnabled = config.enableDebugLog;
+});
+
+chrome.storage.onChanged.addListener((changes, namespace) => {
+  if (changes.enableDebugLog) {
+    debugLogEnabled = changes.enableDebugLog.newValue;
+    debugLog('调试日志已' + (debugLogEnabled ? '启用' : '禁用'));
+  }
+});
+
+function debugLog(...args) {
+  if (debugLogEnabled) {
+    console.log('[AI助手-Background]', ...args);
+  }
+}
+
 chrome.runtime.onInstalled.addListener(() => {
+  debugLog('扩展已安装/更新');
   chrome.contextMenus.create({
     id: "explainWithAI",
     title: "使用 AI 解释",
     contexts: ["selection"]
   });
+  debugLog('上下文菜单已创建');
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "explainWithAI" && info.selectionText) {
     const selectedText = info.selectionText;
-    
-    chrome.tabs.sendMessage(tab.id, {
-      action: "openSidebar",
-      selectedText: selectedText
+    debugLog('上下文菜单被点击', {
+      tabId: tab.id,
+      tabUrl: tab.url,
+      selectedTextLength: selectedText.length
     });
+    
+    try {
+      debugLog('开始确保内容脚本已加载...');
+      await ensureContentScriptLoaded(tab.id);
+      debugLog('内容脚本确认已加载');
+      
+      debugLog('发送openSidebar消息到tab:', tab.id);
+      chrome.tabs.sendMessage(tab.id, {
+        action: "openSidebar",
+        selectedText: selectedText
+      }, (response) => {
+        if (chrome.runtime.lastError) {
+          debugLog('发送消息出错:', chrome.runtime.lastError.message);
+        } else {
+          debugLog('消息发送成功，响应:', response);
+        }
+      });
+    } catch (error) {
+      console.error('[AI助手-Background] 加载内容脚本失败:', error);
+      debugLog('错误详情:', error.stack);
+    }
   }
 });
+
+async function ensureContentScriptLoaded(tabId) {
+  try {
+    debugLog('尝试ping内容脚本...');
+    await chrome.tabs.sendMessage(tabId, { action: "ping" });
+    debugLog('内容脚本已经存在（ping成功）');
+  } catch (error) {
+    debugLog('内容脚本不存在，开始注入...', error.message);
+    
+    try {
+      debugLog('注入JS文件: markdown.js, content.js');
+      const scriptResult = await chrome.scripting.executeScript({
+        target: { tabId: tabId },
+        files: ['markdown.js', 'content.js']
+      });
+      debugLog('JS注入结果:', scriptResult);
+      
+      debugLog('注入CSS文件: sidebar.css');
+      const cssResult = await chrome.scripting.insertCSS({
+        target: { tabId: tabId },
+        files: ['sidebar.css']
+      });
+      debugLog('CSS注入结果:', cssResult);
+      
+      debugLog('等待100ms让脚本初始化...');
+      await new Promise(resolve => setTimeout(resolve, 100));
+      debugLog('脚本注入完成');
+    } catch (injectError) {
+      console.error('[AI助手-Background] 注入脚本失败:', injectError);
+      debugLog('注入错误详情:', injectError.stack);
+      throw injectError;
+    }
+  }
+}
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "callOpenAI") {
