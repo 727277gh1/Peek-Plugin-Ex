@@ -32,8 +32,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ status: "ok" });
     return true;
   } else if (request.action === "openSidebar") {
-    debugLog('打开侧边栏，选中文本长度:', request.selectedText?.length, 'customMode:', request.customMode);
-    openSidebar(request.selectedText, request.customMode);
+    debugLog('打开侧边栏，选中文本长度:', request.selectedText?.length);
+    openSidebar(request.selectedText);
     sendResponse({ status: "sidebar opened" });
     return true;
   } else if (request.action === "streamChunk") {
@@ -49,8 +49,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-function openSidebar(selectedText, customMode = false) {
-  debugLog('openSidebar被调用，sidebar是否存在:', !!sidebar, 'customMode:', customMode);
+let pendingSelectedText = null;
+
+function openSidebar(selectedText) {
+  debugLog('openSidebar被调用，sidebar是否存在:', !!sidebar);
   
   if (!sidebar) {
     debugLog('创建新的sidebar');
@@ -71,11 +73,8 @@ function openSidebar(selectedText, customMode = false) {
   debugLog('sidebar已显示，准备解释文本');
   
   if (selectedText) {
-    if (customMode) {
-      showPromptEditModal(selectedText);
-    } else {
-      explainText(selectedText);
-    }
+    pendingSelectedText = selectedText;
+    explainText(selectedText);
   }
 }
 
@@ -102,7 +101,16 @@ function createSidebar() {
       </div>
       <div class="ai-input-container">
         <textarea id="ai-input" class="ai-input" placeholder="输入消息..." rows="3"></textarea>
-        <button id="ai-send-btn" class="ai-send-btn">发送</button>
+        <div class="ai-button-row">
+          <button id="ai-advanced-btn" class="ai-advanced-btn" title="高级选项">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M12 1v6m0 6v6m8.66-15l-3 5.196M9.34 17.804l-3 5.196M23 12h-6m-6 0H1m18.66 8.66l-3-5.196M9.34 6.196l-3-5.196"></path>
+            </svg>
+            高级选项
+          </button>
+          <button id="ai-send-btn" class="ai-send-btn">发送</button>
+        </div>
       </div>
     </div>
   `;
@@ -127,6 +135,10 @@ function createSidebar() {
   
   sidebar.querySelector('#ai-send-btn').addEventListener('click', () => {
     sendMessage();
+  });
+  
+  sidebar.querySelector('#ai-advanced-btn').addEventListener('click', () => {
+    showAdvancedOptionsModal();
   });
   
   sidebar.querySelector('#ai-input').addEventListener('keydown', (e) => {
@@ -342,16 +354,52 @@ function handleStreamToolCalls(messageId, toolCalls) {
   if (!streamToolCalls[messageId]) {
     streamToolCalls[messageId] = [];
   }
-  streamToolCalls[messageId] = toolCalls;
+  
+  // Merge tool calls (they come incrementally)
+  for (const newCall of toolCalls) {
+    const existingCallIndex = streamToolCalls[messageId].findIndex(c => c.index === newCall.index);
+    if (existingCallIndex >= 0) {
+      const existingCall = streamToolCalls[messageId][existingCallIndex];
+      if (newCall.function) {
+        if (!existingCall.function) {
+          existingCall.function = { name: '', arguments: '' };
+        }
+        if (newCall.function.name) {
+          existingCall.function.name = newCall.function.name;
+        }
+        if (newCall.function.arguments) {
+          existingCall.function.arguments += newCall.function.arguments;
+        }
+      }
+      if (newCall.id) {
+        existingCall.id = newCall.id;
+      }
+      if (newCall.type) {
+        existingCall.type = newCall.type;
+      }
+    } else {
+      streamToolCalls[messageId].push({
+        index: newCall.index,
+        id: newCall.id || '',
+        type: newCall.type || 'function',
+        function: {
+          name: newCall.function?.name || '',
+          arguments: newCall.function?.arguments || ''
+        }
+      });
+    }
+  }
+  
   updateStreamMessage(messageId);
 }
 
 function updateStreamMessage(messageId) {
   const reasoning = streamReasoningContent[messageId] || '';
   const content = streamContent[messageId] || '';
+  const toolCalls = streamToolCalls[messageId] || [];
   
-  if (reasoning) {
-    updateMessageWithReasoning(messageId, reasoning, content, true);
+  if (reasoning || toolCalls.length > 0) {
+    updateMessageWithReasoningAndTools(messageId, reasoning, content, toolCalls, true);
   } else {
     updateMessage(messageId, content, true);
   }
@@ -486,6 +534,213 @@ function updateMessageWithReasoning(messageId, reasoningContent, mainContent, us
   }
 }
 
+function updateMessageWithReasoningAndTools(messageId, reasoningContent, mainContent, toolCalls, useMarkdown = false) {
+  const messageDiv = document.getElementById(messageId);
+  if (messageDiv) {
+    let contentWrapper = messageDiv.querySelector('.ai-message-content-wrapper');
+    if (!contentWrapper) {
+      contentWrapper = document.createElement('div');
+      contentWrapper.className = 'ai-message-content-wrapper';
+      const oldContent = messageDiv.querySelector('.ai-message-content');
+      if (oldContent) {
+        messageDiv.removeChild(oldContent);
+      }
+      messageDiv.appendChild(contentWrapper);
+    }
+    
+    contentWrapper.innerHTML = '';
+    
+    // Display reasoning
+    if (reasoningContent) {
+      const reasoningDiv = document.createElement('div');
+      reasoningDiv.className = 'ai-reasoning-content';
+      const reasoningTitle = document.createElement('div');
+      reasoningTitle.className = 'ai-reasoning-title';
+      reasoningTitle.innerHTML = '💭 思考过程';
+      const reasoningText = document.createElement('div');
+      reasoningText.className = 'ai-reasoning-text';
+      reasoningText.textContent = reasoningContent;
+      reasoningDiv.appendChild(reasoningTitle);
+      reasoningDiv.appendChild(reasoningText);
+      contentWrapper.appendChild(reasoningDiv);
+    }
+    
+    // Display tool calls
+    if (toolCalls && toolCalls.length > 0) {
+      for (const toolCall of toolCalls) {
+        if (toolCall.function && toolCall.function.name === 'online_search') {
+          const toolDiv = renderOnlineSearchTool(toolCall);
+          if (toolDiv) {
+            contentWrapper.appendChild(toolDiv);
+          }
+        }
+      }
+    }
+    
+    // Display main content
+    if (mainContent) {
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'ai-message-content';
+      if (useMarkdown) {
+        contentDiv.innerHTML = parseMarkdown(mainContent);
+      } else {
+        contentDiv.textContent = mainContent;
+      }
+      contentWrapper.appendChild(contentDiv);
+    }
+    
+    if (!messageDiv.querySelector('.ai-copy-btn')) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'ai-copy-btn';
+      copyBtn.innerHTML = '📋';
+      copyBtn.title = '复制';
+      copyBtn.addEventListener('click', () => copyToClipboard(messageId));
+      contentWrapper.appendChild(copyBtn);
+    }
+    
+    scrollToBottom();
+  }
+}
+
+function renderOnlineSearchTool(toolCall) {
+  try {
+    const args = toolCall.function.arguments;
+    if (!args) return null;
+    
+    let parsedArgs;
+    try {
+      parsedArgs = JSON.parse(args);
+    } catch (e) {
+      return null;
+    }
+    
+    const toolDiv = document.createElement('div');
+    toolDiv.className = 'ai-tool-search';
+    
+    // Show progress if available
+    if (parsedArgs.progress) {
+      const progressDiv = document.createElement('div');
+      progressDiv.className = 'ai-tool-search-progress';
+      progressDiv.innerHTML = `
+        <div class="ai-tool-search-icon">🔍</div>
+        <div class="ai-tool-search-text">${escapeHtml(parsedArgs.progress)}</div>
+      `;
+      toolDiv.appendChild(progressDiv);
+    }
+    
+    // Show result if available
+    if (parsedArgs.result) {
+      let resultData;
+      try {
+        resultData = JSON.parse(parsedArgs.result);
+      } catch (e) {
+        return toolDiv;
+      }
+      
+      if (resultData && resultData.cardInfo) {
+        const cardInfo = resultData.cardInfo;
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'ai-tool-search-result';
+        
+        // Collapsible header
+        const header = document.createElement('div');
+        header.className = 'ai-tool-search-header';
+        header.innerHTML = `
+          <div class="ai-tool-search-header-content">
+            <span class="ai-tool-search-icon">🔍</span>
+            <span class="ai-tool-search-title">${escapeHtml(cardInfo.title || cardInfo.shortTitle || '在线搜索结果')}</span>
+          </div>
+          <button class="ai-tool-search-toggle">▼</button>
+        `;
+        resultDiv.appendChild(header);
+        
+        // Collapsible content
+        const content = document.createElement('div');
+        content.className = 'ai-tool-search-content';
+        content.style.display = 'none';
+        
+        if (cardInfo.cardItems) {
+          for (const item of cardInfo.cardItems) {
+            if (item.type === '2001' && item.content) {
+              // Search queries
+              try {
+                const queries = JSON.parse(item.content);
+                if (Array.isArray(queries) && queries.length > 0) {
+                  const queriesDiv = document.createElement('div');
+                  queriesDiv.className = 'ai-tool-search-queries';
+                  queriesDiv.innerHTML = `<div class="ai-tool-search-section-title">搜索关键词</div>`;
+                  const queryList = document.createElement('div');
+                  queryList.className = 'ai-tool-search-query-list';
+                  queries.forEach(q => {
+                    const tag = document.createElement('span');
+                    tag.className = 'ai-tool-search-query-tag';
+                    tag.textContent = q;
+                    queryList.appendChild(tag);
+                  });
+                  queriesDiv.appendChild(queryList);
+                  content.appendChild(queriesDiv);
+                }
+              } catch (e) {}
+            } else if (item.type === '2002' && item.content) {
+              // References
+              try {
+                const refs = JSON.parse(item.content);
+                if (Array.isArray(refs) && refs.length > 0) {
+                  const refsDiv = document.createElement('div');
+                  refsDiv.className = 'ai-tool-search-references';
+                  refsDiv.innerHTML = `<div class="ai-tool-search-section-title">参考资料 (${refs.length}篇)</div>`;
+                  const refList = document.createElement('div');
+                  refList.className = 'ai-tool-search-ref-list';
+                  refs.forEach(ref => {
+                    const refItem = document.createElement('a');
+                    refItem.className = 'ai-tool-search-ref-item';
+                    refItem.href = ref.url;
+                    refItem.target = '_blank';
+                    refItem.rel = 'noopener noreferrer';
+                    refItem.innerHTML = `
+                      <div class="ai-tool-search-ref-index">${ref.idIndex}</div>
+                      <div class="ai-tool-search-ref-content">
+                        <div class="ai-tool-search-ref-title">${escapeHtml(ref.name)}</div>
+                        <div class="ai-tool-search-ref-snippet">${escapeHtml(ref.snippet)}</div>
+                        <div class="ai-tool-search-ref-site">${escapeHtml(ref.siteName)}</div>
+                      </div>
+                    `;
+                    refList.appendChild(refItem);
+                  });
+                  refsDiv.appendChild(refList);
+                  content.appendChild(refsDiv);
+                }
+              } catch (e) {}
+            }
+          }
+        }
+        
+        resultDiv.appendChild(content);
+        
+        // Toggle functionality
+        header.addEventListener('click', () => {
+          const isVisible = content.style.display !== 'none';
+          content.style.display = isVisible ? 'none' : 'block';
+          header.querySelector('.ai-tool-search-toggle').textContent = isVisible ? '▼' : '▲';
+        });
+        
+        toolDiv.appendChild(resultDiv);
+      }
+    }
+    
+    return toolDiv;
+  } catch (e) {
+    debugLog('渲染在线搜索工具出错:', e);
+    return null;
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 function copyToClipboard(messageId) {
   const messageDiv = document.getElementById(messageId);
   if (messageDiv) {
@@ -517,16 +772,24 @@ function copyToClipboard(messageId) {
   }
 }
 
-async function showPromptEditModal(selectedText) {
-  debugLog('显示提示词编辑模态框');
+async function showAdvancedOptionsModal() {
+  debugLog('显示高级选项模态框');
   const config = await getConfig();
+  const input = sidebar.querySelector('#ai-input');
+  const currentInput = input.value.trim();
   
-  const userPromptTemplate = config.userPrompt || '请解释以下内容：\n\n{selectedText}';
-  const initialPrompt = userPromptTemplate.replace('{selectedText}', selectedText);
+  // For initial text explanation, use the template
+  let initialPrompt = '';
+  if (pendingSelectedText && isFirstRequest) {
+    const userPromptTemplate = config.userPrompt || '请解释以下内容：\n\n{selectedText}';
+    initialPrompt = userPromptTemplate.replace('{selectedText}', pendingSelectedText);
+  } else {
+    initialPrompt = currentInput;
+  }
   
   // Create modal overlay
   const modalOverlay = document.createElement('div');
-  modalOverlay.id = 'ai-prompt-edit-modal-overlay';
+  modalOverlay.id = 'ai-advanced-options-modal-overlay';
   modalOverlay.className = 'ai-modal-overlay';
   
   // Create modal
@@ -534,13 +797,13 @@ async function showPromptEditModal(selectedText) {
   modal.className = 'ai-prompt-edit-modal';
   modal.innerHTML = `
     <div class="ai-modal-header">
-      <h3>编辑提示词</h3>
+      <h3>高级选项</h3>
       <button class="ai-modal-close-btn" title="关闭">✕</button>
     </div>
     <div class="ai-modal-body">
       <div class="ai-modal-section">
         <label class="ai-modal-label">提示词内容</label>
-        <textarea class="ai-modal-textarea" id="ai-modal-prompt" rows="10">${initialPrompt}</textarea>
+        <textarea class="ai-modal-textarea" id="ai-modal-prompt" rows="10">${escapeHtml(initialPrompt)}</textarea>
         <span class="ai-modal-help">编辑上方内容后点击发送</span>
       </div>
       <div class="ai-modal-section">
@@ -593,9 +856,20 @@ async function showPromptEditModal(selectedText) {
       return;
     }
     
-    debugLog('自定义提示词:', { customPrompt, enableReasoning, enableOnlineSearch });
+    debugLog('使用高级选项发送:', { customPrompt, enableReasoning, enableOnlineSearch });
     closeModal();
-    explainText(selectedText, customPrompt, enableReasoning, enableOnlineSearch);
+    
+    // Clear input field
+    input.value = '';
+    
+    // If this is for initial explanation
+    if (pendingSelectedText && isFirstRequest) {
+      explainText(pendingSelectedText, customPrompt, enableReasoning, enableOnlineSearch);
+    } else {
+      // For regular message
+      addMessage('user', customPrompt);
+      callAI(customPrompt, false, enableReasoning, enableOnlineSearch);
+    }
   });
   
   // Focus on textarea

@@ -24,23 +24,16 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "使用 AI 解释",
     contexts: ["selection"]
   });
-  chrome.contextMenus.create({
-    id: "explainWithAICustom",
-    title: "使用 AI 解释（编辑提示词）",
-    contexts: ["selection"]
-  });
   debugLog('上下文菜单已创建');
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if ((info.menuItemId === "explainWithAI" || info.menuItemId === "explainWithAICustom") && info.selectionText) {
+  if (info.menuItemId === "explainWithAI" && info.selectionText) {
     const selectedText = info.selectionText;
-    const customMode = info.menuItemId === "explainWithAICustom";
     debugLog('上下文菜单被点击', {
       tabId: tab.id,
       tabUrl: tab.url,
-      selectedTextLength: selectedText.length,
-      customMode: customMode
+      selectedTextLength: selectedText.length
     });
     
     try {
@@ -51,8 +44,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       debugLog('发送openSidebar消息到tab:', tab.id);
       chrome.tabs.sendMessage(tab.id, {
         action: "openSidebar",
-        selectedText: selectedText,
-        customMode: customMode
+        selectedText: selectedText
       }, (response) => {
         if (chrome.runtime.lastError) {
           debugLog('发送消息出错:', chrome.runtime.lastError.message);
