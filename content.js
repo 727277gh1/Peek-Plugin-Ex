@@ -32,8 +32,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ status: "ok" });
     return true;
   } else if (request.action === "openSidebar") {
-    debugLog('打开侧边栏，选中文本长度:', request.selectedText?.length);
-    openSidebar(request.selectedText);
+    debugLog('打开侧边栏，选中文本长度:', request.selectedText?.length, 'customMode:', request.customMode);
+    openSidebar(request.selectedText, request.customMode);
     sendResponse({ status: "sidebar opened" });
     return true;
   } else if (request.action === "streamChunk") {
@@ -49,8 +49,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-function openSidebar(selectedText) {
-  debugLog('openSidebar被调用，sidebar是否存在:', !!sidebar);
+function openSidebar(selectedText, customMode = false) {
+  debugLog('openSidebar被调用，sidebar是否存在:', !!sidebar, 'customMode:', customMode);
   
   if (!sidebar) {
     debugLog('创建新的sidebar');
@@ -71,7 +71,11 @@ function openSidebar(selectedText) {
   debugLog('sidebar已显示，准备解释文本');
   
   if (selectedText) {
-    explainText(selectedText);
+    if (customMode) {
+      showPromptEditModal(selectedText);
+    } else {
+      explainText(selectedText);
+    }
   }
 }
 
@@ -192,13 +196,13 @@ function sendMessage() {
   callAI(message);
 }
 
-async function explainText(selectedText) {
+async function explainText(selectedText, customPrompt = null, overrideReasoning = null, overrideOnlineSearch = null) {
   debugLog('explainText被调用');
   const config = await getConfig();
   debugLog('获取到配置:', { hasApiKey: !!config.apiKey, apiUrl: config.apiUrl, model: config.model });
   
   const systemPrompt = config.systemPrompt || '你是一个专业的助手，帮助用户理解和解释文本内容。';
-  const userPrompt = config.userPrompt || '请解释以下内容：\n\n{selectedText}';
+  const userPrompt = customPrompt || config.userPrompt || '请解释以下内容：\n\n{selectedText}';
   
   const finalUserPrompt = userPrompt.replace('{selectedText}', selectedText);
   
@@ -211,10 +215,10 @@ async function explainText(selectedText) {
   ];
   
   debugLog('调用AI，对话历史长度:', conversationHistory.length);
-  await callAI(null, true);
+  await callAI(null, true, overrideReasoning, overrideOnlineSearch);
 }
 
-async function callAI(userMessage, isInitialExplain = false) {
+async function callAI(userMessage, isInitialExplain = false, overrideReasoning = null, overrideOnlineSearch = null) {
   debugLog('callAI被调用', { isInitialExplain, hasUserMessage: !!userMessage });
   
   if (userMessage && !isInitialExplain) {
@@ -233,10 +237,16 @@ async function callAI(userMessage, isInitialExplain = false) {
       return;
     }
     
-    debugLog('准备调用API', { enableStream: config.enableStream });
+    // Apply overrides if provided
+    if (overrideReasoning !== null) {
+      config.enableReasoning = overrideReasoning;
+    }
+    const enableOnlineSearchFinal = overrideOnlineSearch !== null ? overrideOnlineSearch : config.enableOnlineSearch;
+    
+    debugLog('准备调用API', { enableStream: config.enableStream, enableReasoning: config.enableReasoning, enableOnlineSearch: enableOnlineSearchFinal });
     
     let tools = null;
-    if (isFirstRequest && config.enableOnlineSearch) {
+    if (isFirstRequest && enableOnlineSearchFinal) {
       tools = [{
         type: "function",
         function: {
@@ -505,6 +515,92 @@ function copyToClipboard(messageId) {
       console.error('Failed to copy:', err);
     });
   }
+}
+
+async function showPromptEditModal(selectedText) {
+  debugLog('显示提示词编辑模态框');
+  const config = await getConfig();
+  
+  const userPromptTemplate = config.userPrompt || '请解释以下内容：\n\n{selectedText}';
+  const initialPrompt = userPromptTemplate.replace('{selectedText}', selectedText);
+  
+  // Create modal overlay
+  const modalOverlay = document.createElement('div');
+  modalOverlay.id = 'ai-prompt-edit-modal-overlay';
+  modalOverlay.className = 'ai-modal-overlay';
+  
+  // Create modal
+  const modal = document.createElement('div');
+  modal.className = 'ai-prompt-edit-modal';
+  modal.innerHTML = `
+    <div class="ai-modal-header">
+      <h3>编辑提示词</h3>
+      <button class="ai-modal-close-btn" title="关闭">✕</button>
+    </div>
+    <div class="ai-modal-body">
+      <div class="ai-modal-section">
+        <label class="ai-modal-label">提示词内容</label>
+        <textarea class="ai-modal-textarea" id="ai-modal-prompt" rows="10">${initialPrompt}</textarea>
+        <span class="ai-modal-help">编辑上方内容后点击发送</span>
+      </div>
+      <div class="ai-modal-section">
+        <label class="ai-modal-section-title">高级选项</label>
+        <div class="ai-modal-options">
+          <label class="ai-modal-checkbox-label">
+            <input type="checkbox" id="ai-modal-reasoning" ${config.enableReasoning ? 'checked' : ''}>
+            <span>💭 启用思考链</span>
+          </label>
+          <label class="ai-modal-checkbox-label">
+            <input type="checkbox" id="ai-modal-online-search" ${config.enableOnlineSearch ? 'checked' : ''}>
+            <span>🔍 启用在线搜索</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="ai-modal-footer">
+      <button class="ai-modal-btn ai-modal-btn-secondary" id="ai-modal-cancel">取消</button>
+      <button class="ai-modal-btn ai-modal-btn-primary" id="ai-modal-send">发送</button>
+    </div>
+  `;
+  
+  modalOverlay.appendChild(modal);
+  document.body.appendChild(modalOverlay);
+  
+  // Add event listeners
+  const closeBtn = modal.querySelector('.ai-modal-close-btn');
+  const cancelBtn = modal.querySelector('#ai-modal-cancel');
+  const sendBtn = modal.querySelector('#ai-modal-send');
+  const promptTextarea = modal.querySelector('#ai-modal-prompt');
+  
+  const closeModal = () => {
+    modalOverlay.remove();
+  };
+  
+  closeBtn.addEventListener('click', closeModal);
+  cancelBtn.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', (e) => {
+    if (e.target === modalOverlay) {
+      closeModal();
+    }
+  });
+  
+  sendBtn.addEventListener('click', () => {
+    const customPrompt = promptTextarea.value.trim();
+    const enableReasoning = modal.querySelector('#ai-modal-reasoning').checked;
+    const enableOnlineSearch = modal.querySelector('#ai-modal-online-search').checked;
+    
+    if (!customPrompt) {
+      return;
+    }
+    
+    debugLog('自定义提示词:', { customPrompt, enableReasoning, enableOnlineSearch });
+    closeModal();
+    explainText(selectedText, customPrompt, enableReasoning, enableOnlineSearch);
+  });
+  
+  // Focus on textarea
+  promptTextarea.focus();
+  promptTextarea.setSelectionRange(promptTextarea.value.length, promptTextarea.value.length);
 }
 
 async function getConfig() {
