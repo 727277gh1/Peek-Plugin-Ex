@@ -355,6 +355,8 @@ function handleStreamToolCalls(messageId, toolCalls) {
     streamToolCalls[messageId] = [];
   }
   
+  debugLog('收到工具调用流:', toolCalls);
+  
   // Merge tool calls (they come incrementally)
   for (const newCall of toolCalls) {
     const existingCallIndex = streamToolCalls[messageId].findIndex(c => c.index === newCall.index);
@@ -369,6 +371,7 @@ function handleStreamToolCalls(messageId, toolCalls) {
         }
         if (newCall.function.arguments) {
           existingCall.function.arguments += newCall.function.arguments;
+          debugLog('累加参数，当前长度:', existingCall.function.arguments.length);
         }
       }
       if (newCall.id) {
@@ -387,9 +390,11 @@ function handleStreamToolCalls(messageId, toolCalls) {
           arguments: newCall.function?.arguments || ''
         }
       });
+      debugLog('新增工具调用，索引:', newCall.index);
     }
   }
   
+  debugLog('当前工具调用状态:', streamToolCalls[messageId]);
   updateStreamMessage(messageId);
 }
 
@@ -548,47 +553,104 @@ function updateMessageWithReasoningAndTools(messageId, reasoningContent, mainCon
       messageDiv.appendChild(contentWrapper);
     }
     
-    contentWrapper.innerHTML = '';
-    
-    // Display reasoning
+    // Update reasoning (only if changed)
+    let reasoningDiv = contentWrapper.querySelector('.ai-reasoning-content');
     if (reasoningContent) {
-      const reasoningDiv = document.createElement('div');
-      reasoningDiv.className = 'ai-reasoning-content';
-      const reasoningTitle = document.createElement('div');
-      reasoningTitle.className = 'ai-reasoning-title';
-      reasoningTitle.innerHTML = '💭 思考过程';
-      const reasoningText = document.createElement('div');
-      reasoningText.className = 'ai-reasoning-text';
-      reasoningText.textContent = reasoningContent;
-      reasoningDiv.appendChild(reasoningTitle);
-      reasoningDiv.appendChild(reasoningText);
-      contentWrapper.appendChild(reasoningDiv);
+      if (!reasoningDiv) {
+        reasoningDiv = document.createElement('div');
+        reasoningDiv.className = 'ai-reasoning-content';
+        const reasoningTitle = document.createElement('div');
+        reasoningTitle.className = 'ai-reasoning-title';
+        reasoningTitle.innerHTML = '💭 思考过程';
+        reasoningDiv.appendChild(reasoningTitle);
+        const reasoningText = document.createElement('div');
+        reasoningText.className = 'ai-reasoning-text';
+        reasoningDiv.appendChild(reasoningText);
+        contentWrapper.insertBefore(reasoningDiv, contentWrapper.firstChild);
+      }
+      const reasoningText = reasoningDiv.querySelector('.ai-reasoning-text');
+      if (reasoningText && reasoningText.textContent !== reasoningContent) {
+        reasoningText.textContent = reasoningContent;
+      }
     }
     
-    // Display tool calls
-    if (toolCalls && toolCalls.length > 0) {
+    // Update tool calls
+    let toolContainer = contentWrapper.querySelector('.ai-tool-calls-container');
+    if (!toolContainer && toolCalls && toolCalls.length > 0) {
+      toolContainer = document.createElement('div');
+      toolContainer.className = 'ai-tool-calls-container';
+      // Insert after reasoning or at the beginning
+      if (reasoningDiv) {
+        reasoningDiv.insertAdjacentElement('afterend', toolContainer);
+      } else {
+        contentWrapper.insertBefore(toolContainer, contentWrapper.firstChild);
+      }
+    }
+    
+    if (toolCalls && toolCalls.length > 0 && toolContainer) {
+      // Clear and re-render tool calls only if needed
+      const newToolsHTML = [];
       for (const toolCall of toolCalls) {
         if (toolCall.function && toolCall.function.name === 'online_search') {
           const toolDiv = renderOnlineSearchTool(toolCall);
           if (toolDiv) {
-            contentWrapper.appendChild(toolDiv);
+            newToolsHTML.push(toolDiv.outerHTML);
           }
+        }
+      }
+      const newHTML = newToolsHTML.join('');
+      if (toolContainer.innerHTML !== newHTML) {
+        toolContainer.innerHTML = '';
+        for (const toolCall of toolCalls) {
+          if (toolCall.function && toolCall.function.name === 'online_search') {
+            const toolDiv = renderOnlineSearchTool(toolCall);
+            if (toolDiv) {
+              toolContainer.appendChild(toolDiv);
+            }
+          }
+        }
+        // Re-attach event listeners for toggle buttons
+        toolContainer.querySelectorAll('.ai-tool-search-header').forEach(header => {
+          const toggle = header.querySelector('.ai-tool-search-toggle');
+          const content = header.parentElement.querySelector('.ai-tool-search-content');
+          if (toggle && content) {
+            header.addEventListener('click', () => {
+              const isVisible = content.style.display !== 'none';
+              content.style.display = isVisible ? 'none' : 'block';
+              toggle.textContent = isVisible ? '▼' : '▲';
+            });
+          }
+        });
+      }
+    }
+    
+    // Update main content
+    let contentDiv = contentWrapper.querySelector('.ai-message-content');
+    if (mainContent) {
+      if (!contentDiv) {
+        contentDiv = document.createElement('div');
+        contentDiv.className = 'ai-message-content';
+        // Insert before copy button if exists
+        const copyBtn = contentWrapper.querySelector('.ai-copy-btn');
+        if (copyBtn) {
+          contentWrapper.insertBefore(contentDiv, copyBtn);
+        } else {
+          contentWrapper.appendChild(contentDiv);
+        }
+      }
+      if (useMarkdown) {
+        const newHTML = parseMarkdown(mainContent);
+        if (contentDiv.innerHTML !== newHTML) {
+          contentDiv.innerHTML = newHTML;
+        }
+      } else {
+        if (contentDiv.textContent !== mainContent) {
+          contentDiv.textContent = mainContent;
         }
       }
     }
     
-    // Display main content
-    if (mainContent) {
-      const contentDiv = document.createElement('div');
-      contentDiv.className = 'ai-message-content';
-      if (useMarkdown) {
-        contentDiv.innerHTML = parseMarkdown(mainContent);
-      } else {
-        contentDiv.textContent = mainContent;
-      }
-      contentWrapper.appendChild(contentDiv);
-    }
-    
+    // Add copy button if not exists
     if (!messageDiv.querySelector('.ai-copy-btn')) {
       const copyBtn = document.createElement('button');
       copyBtn.className = 'ai-copy-btn';
@@ -611,29 +673,31 @@ function renderOnlineSearchTool(toolCall) {
     try {
       parsedArgs = JSON.parse(args);
     } catch (e) {
+      debugLog('解析工具调用参数失败:', e, args);
       return null;
     }
     
     const toolDiv = document.createElement('div');
     toolDiv.className = 'ai-tool-search';
     
-    // Show progress if available
-    if (parsedArgs.progress) {
-      const progressDiv = document.createElement('div');
-      progressDiv.className = 'ai-tool-search-progress';
-      progressDiv.innerHTML = `
-        <div class="ai-tool-search-icon">🔍</div>
-        <div class="ai-tool-search-text">${escapeHtml(parsedArgs.progress)}</div>
-      `;
-      toolDiv.appendChild(progressDiv);
-    }
-    
-    // Show result if available
+    // Show result if available (result takes priority over progress)
     if (parsedArgs.result) {
       let resultData;
       try {
         resultData = JSON.parse(parsedArgs.result);
+        debugLog('解析result数据成功:', resultData);
       } catch (e) {
+        debugLog('解析result JSON失败:', e, parsedArgs.result);
+        // If result parsing fails, show progress instead
+        if (parsedArgs.progress) {
+          const progressDiv = document.createElement('div');
+          progressDiv.className = 'ai-tool-search-progress';
+          progressDiv.innerHTML = `
+            <div class="ai-tool-search-icon">🔍</div>
+            <div class="ai-tool-search-text">${escapeHtml(parsedArgs.progress)}</div>
+          `;
+          toolDiv.appendChild(progressDiv);
+        }
         return toolDiv;
       }
       
@@ -659,12 +723,14 @@ function renderOnlineSearchTool(toolCall) {
         content.className = 'ai-tool-search-content';
         content.style.display = 'none';
         
-        if (cardInfo.cardItems) {
+        if (cardInfo.cardItems && Array.isArray(cardInfo.cardItems)) {
+          debugLog('处理cardItems，数量:', cardInfo.cardItems.length);
           for (const item of cardInfo.cardItems) {
             if (item.type === '2001' && item.content) {
               // Search queries
               try {
                 const queries = JSON.parse(item.content);
+                debugLog('解析搜索关键词:', queries);
                 if (Array.isArray(queries) && queries.length > 0) {
                   const queriesDiv = document.createElement('div');
                   queriesDiv.className = 'ai-tool-search-queries';
@@ -680,11 +746,14 @@ function renderOnlineSearchTool(toolCall) {
                   queriesDiv.appendChild(queryList);
                   content.appendChild(queriesDiv);
                 }
-              } catch (e) {}
+              } catch (e) {
+                debugLog('解析搜索关键词失败:', e);
+              }
             } else if (item.type === '2002' && item.content) {
               // References
               try {
                 const refs = JSON.parse(item.content);
+                debugLog('解析参考资料，数量:', refs.length);
                 if (Array.isArray(refs) && refs.length > 0) {
                   const refsDiv = document.createElement('div');
                   refsDiv.className = 'ai-tool-search-references';
@@ -710,7 +779,9 @@ function renderOnlineSearchTool(toolCall) {
                   refsDiv.appendChild(refList);
                   content.appendChild(refsDiv);
                 }
-              } catch (e) {}
+              } catch (e) {
+                debugLog('解析参考资料失败:', e);
+              }
             }
           }
         }
@@ -725,7 +796,23 @@ function renderOnlineSearchTool(toolCall) {
         });
         
         toolDiv.appendChild(resultDiv);
+      } else {
+        debugLog('resultData 没有 cardInfo');
       }
+    } else if (parsedArgs.progress) {
+      // Only show progress if no result is available
+      const progressDiv = document.createElement('div');
+      progressDiv.className = 'ai-tool-search-progress';
+      progressDiv.innerHTML = `
+        <div class="ai-tool-search-icon">🔍</div>
+        <div class="ai-tool-search-text">${escapeHtml(parsedArgs.progress)}</div>
+      `;
+      toolDiv.appendChild(progressDiv);
+    }
+    
+    // Return null if toolDiv is empty
+    if (toolDiv.children.length === 0) {
+      return null;
     }
     
     return toolDiv;
@@ -736,8 +823,9 @@ function renderOnlineSearchTool(toolCall) {
 }
 
 function escapeHtml(text) {
+  if (!text) return '';
   const div = document.createElement('div');
-  div.textContent = text;
+  div.textContent = String(text);
   return div.innerHTML;
 }
 

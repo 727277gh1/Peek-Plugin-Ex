@@ -512,6 +512,14 @@
   min-width: 0 !important;
 }
 
+.ai-tool-calls-container {
+  margin: 0 0 8px 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+
 .ai-reasoning-content {
   background: rgba(102, 126, 234, 0.08) !important;
   border: 1px solid rgba(102, 126, 234, 0.2) !important;
