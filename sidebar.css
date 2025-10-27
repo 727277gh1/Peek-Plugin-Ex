@@ -429,22 +429,30 @@
   opacity: 0.7 !important;
 }
 
-#ai-explain-sidebar * {
-  box-sizing: border-box !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  border: none !important;
-  background: transparent !important;
-  font-family: inherit !important;
-  font-size: inherit !important;
-  line-height: inherit !important;
-  color: inherit !important;
-  text-decoration: none !important;
+/* Reset only for potentially interfering page elements inside message content */
+#ai-explain-sidebar .ai-message-content * {
+  all: revert !important;
 }
 
-#ai-explain-sidebar *:not(#ai-explain-sidebar):not(.ai-sidebar-header):not(.ai-sidebar-content):not(.ai-messages):not(.ai-message):not(.ai-message-role):not(.ai-message-content-wrapper):not(.ai-message-content):not(.ai-reasoning-content):not(.ai-reasoning-title):not(.ai-reasoning-text):not(.ai-input-container):not(.ai-input):not(.ai-send-btn):not(.ai-icon-btn):not(.ai-header-buttons):not(.ai-copy-btn):not(h1):not(h2):not(h3):not(p):not(code):not(pre):not(ul):not(ol):not(li):not(blockquote):not(a):not(strong):not(em):not(table):not(tr):not(td):not(del) {
-  all: unset !important;
-  display: inline !important;
+/* Ensure our styled elements in message content keep their styles */
+#ai-explain-sidebar .ai-message-content h1,
+#ai-explain-sidebar .ai-message-content h2,
+#ai-explain-sidebar .ai-message-content h3,
+#ai-explain-sidebar .ai-message-content p,
+#ai-explain-sidebar .ai-message-content code,
+#ai-explain-sidebar .ai-message-content pre,
+#ai-explain-sidebar .ai-message-content ul,
+#ai-explain-sidebar .ai-message-content ol,
+#ai-explain-sidebar .ai-message-content li,
+#ai-explain-sidebar .ai-message-content blockquote,
+#ai-explain-sidebar .ai-message-content a,
+#ai-explain-sidebar .ai-message-content strong,
+#ai-explain-sidebar .ai-message-content em,
+#ai-explain-sidebar .ai-message-content table,
+#ai-explain-sidebar .ai-message-content tr,
+#ai-explain-sidebar .ai-message-content td,
+#ai-explain-sidebar .ai-message-content del {
+  all: revert !important;
 }
 
 .ai-message-content-wrapper {
