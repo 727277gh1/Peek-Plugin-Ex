@@ -70,11 +70,12 @@ function openSidebar(selectedText) {
   const messagesContainer = sidebar.querySelector('#ai-messages');
   messagesContainer.innerHTML = '';
   
-  debugLog('sidebar已显示，准备解释文本');
+  debugLog('sidebar已显示，准备显示高级选项');
   
   if (selectedText) {
     pendingSelectedText = selectedText;
-    explainText(selectedText);
+    // Always show advanced options modal first
+    showAdvancedOptionsModal();
   }
 }
 
@@ -454,9 +455,9 @@ function addMessage(role, content) {
   
   if (role === 'assistant') {
     const copyBtn = document.createElement('button');
-    copyBtn.className = 'ai-copy-btn';
-    copyBtn.innerHTML = '📋';
-    copyBtn.title = '复制';
+    copyBtn.className = 'ai-copy-btn-inline';
+    copyBtn.innerHTML = '📋 复制';
+    copyBtn.title = '复制内容';
     copyBtn.addEventListener('click', () => copyToClipboard(messageId));
     contentWrapper.appendChild(copyBtn);
   }
@@ -526,11 +527,11 @@ function updateMessageWithReasoning(messageId, reasoningContent, mainContent, us
       contentWrapper.appendChild(contentDiv);
     }
     
-    if (!messageDiv.querySelector('.ai-copy-btn')) {
+    if (!contentWrapper.querySelector('.ai-copy-btn-inline')) {
       const copyBtn = document.createElement('button');
-      copyBtn.className = 'ai-copy-btn';
-      copyBtn.innerHTML = '📋';
-      copyBtn.title = '复制';
+      copyBtn.className = 'ai-copy-btn-inline';
+      copyBtn.innerHTML = '📋 复制';
+      copyBtn.title = '复制内容';
       copyBtn.addEventListener('click', () => copyToClipboard(messageId));
       contentWrapper.appendChild(copyBtn);
     }
@@ -650,12 +651,12 @@ function updateMessageWithReasoningAndTools(messageId, reasoningContent, mainCon
       }
     }
     
-    // Add copy button if not exists
-    if (!messageDiv.querySelector('.ai-copy-btn')) {
+    // Add copy button if not exists (at the end of content)
+    if (!contentWrapper.querySelector('.ai-copy-btn-inline')) {
       const copyBtn = document.createElement('button');
-      copyBtn.className = 'ai-copy-btn';
-      copyBtn.innerHTML = '📋';
-      copyBtn.title = '复制';
+      copyBtn.className = 'ai-copy-btn-inline';
+      copyBtn.innerHTML = '📋 复制';
+      copyBtn.title = '复制内容';
       copyBtn.addEventListener('click', () => copyToClipboard(messageId));
       contentWrapper.appendChild(copyBtn);
     }
@@ -714,14 +715,14 @@ function renderOnlineSearchTool(toolCall) {
             <span class="ai-tool-search-icon">🔍</span>
             <span class="ai-tool-search-title">${escapeHtml(cardInfo.title || cardInfo.shortTitle || '在线搜索结果')}</span>
           </div>
-          <button class="ai-tool-search-toggle">▼</button>
+          <button class="ai-tool-search-toggle">▲</button>
         `;
         resultDiv.appendChild(header);
         
-        // Collapsible content
+        // Collapsible content (default expanded)
         const content = document.createElement('div');
         content.className = 'ai-tool-search-content';
-        content.style.display = 'none';
+        content.style.display = 'block';
         
         if (cardInfo.cardItems && Array.isArray(cardInfo.cardItems)) {
           debugLog('处理cardItems，数量:', cardInfo.cardItems.length);
