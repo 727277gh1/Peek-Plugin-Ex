@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tool Call Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tool Call JSON 解析测试</h1>
+  
+  <h2>测试用例 1: Progress</h2>
+  <pre id="test1-input"></pre>
+  <div id="test1-result" class="result"></div>
+
+  <h2>测试用例 2: Result with Card Info</h2>
+  <pre id="test2-input"></pre>
+  <div id="test2-result" class="result"></div>
+
+  <script>
+    // Test case 1: Progress
+    const progressArgs = '{"progress":"联网搜索中..."}';
+    document.getElementById('test1-input').textContent = progressArgs;
+    
+    try {
+      const parsed = JSON.parse(progressArgs);
+      document.getElementById('test1-result').innerHTML = `
+        <strong>解析成功:</strong><br>
+        Progress: ${parsed.progress}
+      `;
+    } catch (e) {
+      document.getElementById('test1-result').innerHTML = `<strong>解析失败:</strong> ${e.message}`;
+    }
+
+    // Test case 2: Result with nested JSON
+    const resultArgs = '{"result":"{\\"cardType\\":\\"DB-CARD-2\\",\\"cardInfo\\":{\\"initTitle\\":\\"理解问题\\",\\"cardItems\\":[{\\"name\\":\\"搜索网页\\",\\"type\\":\\"2001\\",\\"content\\":\\"[\\\\\\"车辆过户费用组成\\\\\\",\\\\\\"二手车交易过户费标准\\\\\\"]\\"},{\\"name\\":\\"引用分析 2篇 参考资料\\",\\"type\\":\\"2002\\",\\"content\\":\\"[{\\\\\\"idIndex\\\\\\":\\\\\\"1\\\\\\",\\\\\\"name\\\\\\":\\\\\\"测试文章1\\\\\\",\\\\\\"siteName\\\\\\":\\\\\\"test.com\\\\\\",\\\\\\"snippet\\\\\\":\\\\\\"测试摘要\\\\\\",\\\\\\"url\\\\\\":\\\\\\"https://test.com/1\\\\\\"},{\\\\\\"idIndex\\\\\\":\\\\\\"2\\\\\\",\\\\\\"name\\\\\\":\\\\\\"测试文章2\\\\\\",\\\\\\"siteName\\\\\\":\\\\\\"test2.com\\\\\\",\\\\\\"snippet\\\\\\":\\\\\\"测试摘要2\\\\\\",\\\\\\"url\\\\\\":\\\\\\"https://test2.com/2\\\\\\"}]\\"}],\\"title\\":\\"搜索结果测试\\",\\"shortTitle\\":\\"搜索结果\\"}}"}';
+    
+    document.getElementById('test2-input').textContent = resultArgs;
+    
+    try {
+      const parsed = JSON.parse(resultArgs);
+      console.log('第一层解析:', parsed);
+      
+      if (parsed.result) {
+        const resultData = JSON.parse(parsed.result);
+        console.log('第二层解析 resultData:', resultData);
+        
+        let output = '<strong>解析成功:</strong><br>';
+        output += `Card Type: ${resultData.cardType}<br>`;
+        output += `Title: ${resultData.cardInfo.title}<br>`;
+        output += `<br><strong>Card Items:</strong><br>`;
+        
+        if (resultData.cardInfo.cardItems) {
+          resultData.cardInfo.cardItems.forEach((item, index) => {
+            output += `<br><strong>Item ${index + 1}:</strong><br>`;
+            output += `Type: ${item.type}<br>`;
+            output += `Name: ${item.name}<br>`;
+            
+            try {
+              const content = JSON.parse(item.content);
+              console.log(`Item ${index + 1} content:`, content);
+              output += `Content (${Array.isArray(content) ? content.length : 'unknown'} items): ${JSON.stringify(content, null, 2)}<br>`;
+            } catch (e) {
+              output += `Content Parse Error: ${e.message}<br>`;
+            }
+          });
+        }
+        
+        document.getElementById('test2-result').innerHTML = output;
+      }
+    } catch (e) {
+      console.error('解析错误:', e);
+      document.getElementById('test2-result').innerHTML = `<strong>解析失败:</strong> ${e.message}<br>Stack: ${e.stack}`;
+    }
+  </script>
+</body>
+</html>
