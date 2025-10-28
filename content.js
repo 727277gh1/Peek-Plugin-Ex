@@ -894,15 +894,29 @@ function renderOnlineSearchTool(toolCall) {
                     const refItem = document.createElement('div');
                     refItem.className = 'ai-tool-search-ref-item';
                     
-                    // Compact view (always visible)
-                    const refCompact = document.createElement('div');
-                    refCompact.className = 'ai-tool-search-ref-compact';
-                    refCompact.innerHTML = `
-                      <div class="ai-tool-search-ref-header-row">
-                        <span class="ai-tool-search-ref-index">${ref.idIndex}</span>
-                        <a href="${ref.url}" target="_blank" rel="noopener noreferrer" class="ai-tool-search-ref-title-link" onclick="event.stopPropagation()">
-                          ${escapeHtml(ref.name)}
-                        </a>
+                    // Modern compact card view
+                    const refCard = document.createElement('div');
+                    refCard.className = 'ai-tool-search-ref-card';
+                    
+                    // Card header with index badge and title
+                    refCard.innerHTML = `
+                      <div class="ai-tool-search-ref-header">
+                        <span class="ai-tool-search-ref-badge">${ref.idIndex}</span>
+                        <div class="ai-tool-search-ref-title-wrapper">
+                          <a href="${ref.url}" target="_blank" rel="noopener noreferrer" 
+                             class="ai-tool-search-ref-title" onclick="event.stopPropagation()" 
+                             title="${escapeHtml(ref.name)}">
+                            ${escapeHtml(truncateText(ref.name, 60))}
+                          </a>
+                          <div class="ai-tool-search-ref-meta">
+                            <span class="ai-tool-search-ref-source">${escapeHtml(ref.siteName)}</span>
+                          </div>
+                        </div>
+                        <button class="ai-tool-search-ref-toggle" aria-label="展开详情">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 12 15 18 9"></polyline>
+                          </svg>
+                        </button>
                       </div>
                     `;
                     
@@ -912,25 +926,29 @@ function renderOnlineSearchTool(toolCall) {
                     refDetail.style.display = 'none';
                     refDetail.innerHTML = `
                       <div class="ai-tool-search-ref-snippet">${escapeHtml(ref.snippet)}</div>
-                      <div class="ai-tool-search-ref-footer">
-                        <span class="ai-tool-search-ref-site">📄 ${escapeHtml(ref.siteName)}</span>
-                        <a href="${ref.url}" target="_blank" rel="noopener noreferrer" class="ai-tool-search-ref-link">
-                          访问链接 →
-                        </a>
-                      </div>
+                      <a href="${ref.url}" target="_blank" rel="noopener noreferrer" class="ai-tool-search-ref-visit-btn">
+                        访问原文 →
+                      </a>
                     `;
                     
-                    refItem.appendChild(refCompact);
-                    refItem.appendChild(refDetail);
+                    refCard.appendChild(refDetail);
+                    refItem.appendChild(refCard);
                     
                     // Toggle detail on click
-                    refCompact.addEventListener('click', (e) => {
+                    const toggleBtn = refCard.querySelector('.ai-tool-search-ref-toggle');
+                    const header = refCard.querySelector('.ai-tool-search-ref-header');
+                    
+                    const toggleDetail = (e) => {
                       if (e.target.tagName !== 'A') {
+                        e.stopPropagation();
                         const isExpanded = refDetail.style.display !== 'none';
                         refDetail.style.display = isExpanded ? 'none' : 'block';
                         refItem.classList.toggle('expanded', !isExpanded);
+                        toggleBtn.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
                       }
-                    });
+                    };
+                    
+                    header.addEventListener('click', toggleDetail);
                     
                     refList.appendChild(refItem);
                   });
@@ -947,6 +965,10 @@ function renderOnlineSearchTool(toolCall) {
                     
                     refList.querySelectorAll('.ai-tool-search-ref-item').forEach(item => {
                       item.classList.toggle('expanded', newState);
+                    });
+                    
+                    refList.querySelectorAll('.ai-tool-search-ref-toggle').forEach(btn => {
+                      btn.style.transform = newState ? 'rotate(180deg)' : 'rotate(0deg)';
                     });
                     
                     toggleAllBtn.dataset.expanded = newState;
@@ -1004,6 +1026,12 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = String(text);
   return div.innerHTML;
+}
+
+function truncateText(text, maxLength) {
+  if (!text) return '';
+  if (text.length <= maxLength) return text;
+  return text.substring(0, maxLength) + '...';
 }
 
 function copyToClipboard(messageId) {
