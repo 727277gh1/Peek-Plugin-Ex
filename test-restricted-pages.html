@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>受限页面测试指南 - AI 文本解释助手</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    h1 {
+      color: #2c3e50;
+      border-bottom: 3px solid #3498db;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #34495e;
+      margin-top: 30px;
+    }
+    .test-section {
+      background: #f8f9fa;
+      border-left: 4px solid #3498db;
+      padding: 15px;
+      margin: 20px 0;
+    }
+    .success {
+      background: #d4edda;
+      border-left-color: #28a745;
+    }
+    .warning {
+      background: #fff3cd;
+      border-left-color: #ffc107;
+    }
+    .error {
+      background: #f8d7da;
+      border-left-color: #dc3545;
+    }
+    code {
+      background: #e9ecef;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+    ul {
+      margin: 10px 0;
+    }
+    li {
+      margin: 8px 0;
+    }
+    .instruction {
+      background: #e7f3ff;
+      border: 1px solid #b3d7ff;
+      border-radius: 5px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+    .instruction strong {
+      color: #0066cc;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔒 受限页面功能测试指南</h1>
+  
+  <p>本页面用于测试和验证 AI 文本解释助手在受限页面的行为。</p>
+
+  <h2>✅ 扩展应该正常工作的地方</h2>
+  <div class="test-section success">
+    <p><strong>在本页面测试：</strong></p>
+    <ol>
+      <li>选中以下任意文本</li>
+      <li>右键点击选中的文本</li>
+      <li>选择 "使用 AI 解释"</li>
+      <li>侧边栏应该正常弹出 ✅</li>
+    </ol>
+    <p style="margin-top: 20px; font-style: italic; color: #555;">
+      "人工智能（Artificial Intelligence, AI）是计算机科学的一个分支，
+      它企图了解智能的实质，并生产出一种新的能以人类智能相似的方式做出反应的智能机器。
+      该领域的研究包括机器人、语言识别、图像识别、自然语言处理和专家系统等。"
+    </p>
+  </div>
+
+  <h2>❌ 扩展无法工作的页面类型</h2>
+  
+  <div class="test-section error">
+    <h3>1. 浏览器内部页面</h3>
+    <p><strong>以下页面会显示限制通知：</strong></p>
+    <ul>
+      <li><code>chrome://extensions/</code> - Chrome 扩展管理页面</li>
+      <li><code>chrome://settings/</code> - Chrome 设置页面</li>
+      <li><code>chrome://history/</code> - Chrome 历史记录</li>
+      <li><code>edge://extensions/</code> - Edge 扩展管理页面</li>
+      <li><code>about:blank</code> - 空白页</li>
+      <li><code>about:config</code> - 配置页面</li>
+    </ul>
+    
+    <div class="instruction">
+      <strong>测试步骤：</strong>
+      <ol>
+        <li>在新标签页打开 <code>chrome://extensions/</code></li>
+        <li>尝试选中页面上的任何文本</li>
+        <li>右键选择 "使用 AI 解释"</li>
+        <li>应该看到通知：<em>"抱歉，浏览器不允许扩展在此类页面运行"</em> 🔔</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="test-section error">
+    <h3>2. 其他扩展的页面</h3>
+    <p><strong>URL 格式：</strong></p>
+    <ul>
+      <li><code>chrome-extension://[extension-id]/page.html</code></li>
+    </ul>
+    
+    <div class="instruction">
+      <strong>测试步骤：</strong>
+      <ol>
+        <li>打开任何其他扩展的配置页面或弹出窗口</li>
+        <li>尝试使用 AI 解释功能</li>
+        <li>应该看到限制通知 🔔</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="test-section error">
+    <h3>3. 浏览器错误页面</h3>
+    <p><strong>触发方式：</strong></p>
+    <ul>
+      <li>断开网络连接后访问任何网站</li>
+      <li>访问不存在的域名</li>
+      <li>访问被浏览器阻止的网站</li>
+    </ul>
+    
+    <div class="instruction">
+      <strong>测试步骤：</strong>
+      <ol>
+        <li>断开网络（关闭 Wi-Fi 或拔掉网线）</li>
+        <li>尝试访问 <code>https://example.com</code></li>
+        <li>在错误页面尝试使用扩展</li>
+        <li>应该看到通知：<em>"无法在当前页面使用扩展"</em> 🔔</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="test-section error">
+    <h3>4. Chrome Web Store 页面</h3>
+    <p><strong>URL：</strong></p>
+    <ul>
+      <li><code>https://chrome.google.com/webstore/</code></li>
+      <li><code>https://microsoftedge.microsoft.com/addons/</code></li>
+    </ul>
+    
+    <div class="instruction">
+      <strong>测试步骤：</strong>
+      <ol>
+        <li>访问 Chrome 网上应用店或 Edge 扩展商店</li>
+        <li>尝试使用扩展功能</li>
+        <li>应该看到限制通知 🔔</li>
+      </ol>
+    </div>
+  </div>
+
+  <h2>⚙️ 预期行为总结</h2>
+  
+  <div class="test-section">
+    <h3>✅ 正常网页（HTTP/HTTPS）</h3>
+    <ul>
+      <li>扩展功能完全可用</li>
+      <li>右键菜单正常显示</li>
+      <li>侧边栏可以正常打开</li>
+      <li>AI 功能正常工作</li>
+    </ul>
+  </div>
+
+  <div class="test-section warning">
+    <h3>🔔 受限页面</h3>
+    <ul>
+      <li>显示桌面通知说明原因</li>
+      <li>不会出现静默失败</li>
+      <li>不会显示混淆的错误消息</li>
+      <li>通知消息清晰说明限制原因</li>
+    </ul>
+  </div>
+
+  <h2>🐛 调试技巧</h2>
+  
+  <div class="test-section">
+    <h3>查看调试日志</h3>
+    <ol>
+      <li>打开扩展的弹出窗口（点击工具栏图标）</li>
+      <li>启用 "调试日志" 选项</li>
+      <li>打开浏览器开发者工具（F12）</li>
+      <li>查看 Console 标签</li>
+      <li>查找以 <code>[AI助手-Background]</code> 或 <code>[AI助手-Content]</code> 开头的日志</li>
+    </ol>
+    
+    <p><strong>受限页面的日志示例：</strong></p>
+    <code>[AI助手-Background] 检测到受限页面: chrome://extensions/</code><br>
+    <code>[AI助手-Background] URL受限，跳过注入: chrome://extensions/</code>
+  </div>
+
+  <h2>📝 更多测试文本</h2>
+  
+  <div class="test-section">
+    <p><strong>技术类文本：</strong></p>
+    <p>
+      "JavaScript 是一种高级的、解释型的编程语言。它是一门基于原型、
+      函数先行的语言，是一门多范式的语言，支持面向对象编程、
+      命令式编程以及函数式编程。"
+    </p>
+    
+    <p><strong>科学类文本：</strong></p>
+    <p>
+      "量子力学是描述微观世界结构、运动与变化规律的物理学分支，
+      是现代物理学的两大基础理论之一。量子力学的建立是20世纪最重要的成就之一。"
+    </p>
+    
+    <p><strong>历史类文本：</strong></p>
+    <p>
+      "文艺复兴是发生在14世纪到17世纪的一场反映新兴资产阶级要求的欧洲思想文化运动。
+      其兴起于意大利的佛罗伦萨，后扩展到西欧各国。"
+    </p>
+  </div>
+
+  <h2>✨ 功能改进说明</h2>
+  
+  <div class="test-section">
+    <p><strong>本次更新包括：</strong></p>
+    <ul>
+      <li>✅ 添加受限 URL 检测功能</li>
+      <li>✅ 在尝试使用扩展前主动检查页面类型</li>
+      <li>✅ 显示友好的通知消息而不是静默失败</li>
+      <li>✅ 添加详细的调试日志</li>
+      <li>✅ 在 manifest.json 中添加 notifications 权限</li>
+      <li>✅ 创建完整的文档说明（RESTRICTED_PAGES_FIX.md）</li>
+    </ul>
+  </div>
+
+  <footer style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 14px;">
+    <p>如有问题，请查看：</p>
+    <ul>
+      <li><code>RESTRICTED_PAGES_FIX.md</code> - 详细技术文档</li>
+      <li><code>DEBUG_GUIDE.md</code> - 调试指南</li>
+    </ul>
+  </footer>
+</body>
+</html>

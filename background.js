@@ -17,6 +17,27 @@ function debugLog(...args) {
   }
 }
 
+function isRestrictedUrl(url) {
+  if (!url) return true;
+  
+  // List of restricted URL patterns
+  const restrictedPatterns = [
+    /^chrome:\/\//,           // Chrome internal pages
+    /^edge:\/\//,             // Edge internal pages
+    /^about:/,                // About pages
+    /^chrome-extension:\/\//, // Other extension pages
+    /^extension:\/\//,        // Extension pages (generic)
+    /^file:\/\//,             // Local files (often restricted)
+    /^view-source:/,          // View source pages
+    /^data:/,                 // Data URLs
+    /^javascript:/,           // JavaScript URLs
+    /chrome\.google\.com\/webstore/,  // Chrome Web Store
+    /microsoftedge\.microsoft\.com\/addons/  // Edge Add-ons
+  ];
+  
+  return restrictedPatterns.some(pattern => pattern.test(url));
+}
+
 chrome.runtime.onInstalled.addListener(() => {
   debugLog('扩展已安装/更新');
   chrome.contextMenus.create({
@@ -36,9 +57,22 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       selectedTextLength: selectedText.length
     });
     
+    // Check if the URL is restricted
+    if (isRestrictedUrl(tab.url)) {
+      debugLog('检测到受限页面:', tab.url);
+      chrome.notifications.create({
+        type: 'basic',
+        iconPath: 'icons/icon48.png',
+        title: 'AI 文本解释助手',
+        message: '抱歉，浏览器不允许扩展在此类页面运行（浏览器内部页面、扩展页面或错误页面）。',
+        priority: 2
+      });
+      return;
+    }
+    
     try {
       debugLog('开始确保内容脚本已加载...');
-      await ensureContentScriptLoaded(tab.id);
+      await ensureContentScriptLoaded(tab.id, tab.url);
       debugLog('内容脚本确认已加载');
       
       debugLog('发送openSidebar消息到tab:', tab.id);
@@ -55,17 +89,32 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     } catch (error) {
       console.error('[AI助手-Background] 加载内容脚本失败:', error);
       debugLog('错误详情:', error.stack);
+      
+      // Show user-friendly error notification
+      chrome.notifications.create({
+        type: 'basic',
+        iconPath: 'icons/icon48.png',
+        title: 'AI 文本解释助手',
+        message: '无法在当前页面使用扩展。请尝试刷新页面或在其他网页使用。',
+        priority: 2
+      });
     }
   }
 });
 
-async function ensureContentScriptLoaded(tabId) {
+async function ensureContentScriptLoaded(tabId, url) {
   try {
     debugLog('尝试ping内容脚本...');
     await chrome.tabs.sendMessage(tabId, { action: "ping" });
     debugLog('内容脚本已经存在（ping成功）');
   } catch (error) {
     debugLog('内容脚本不存在，开始注入...', error.message);
+    
+    // Additional check for restricted URLs before injection attempt
+    if (url && isRestrictedUrl(url)) {
+      debugLog('URL受限，跳过注入:', url);
+      throw new Error('Cannot inject scripts into restricted pages');
+    }
     
     try {
       debugLog('注入JS文件: markdown.js, content.js');
