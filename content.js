@@ -758,25 +758,82 @@ function renderOnlineSearchTool(toolCall) {
                 if (Array.isArray(refs) && refs.length > 0) {
                   const refsDiv = document.createElement('div');
                   refsDiv.className = 'ai-tool-search-references';
-                  refsDiv.innerHTML = `<div class="ai-tool-search-section-title">参考资料 (${refs.length}篇)</div>`;
+                  
+                  // Header with expand/collapse all
+                  const refsHeader = document.createElement('div');
+                  refsHeader.className = 'ai-tool-search-refs-header';
+                  refsHeader.innerHTML = `
+                    <div class="ai-tool-search-section-title">参考资料 (${refs.length}篇)</div>
+                    <button class="ai-tool-search-refs-toggle-all" data-expanded="false">展开全部</button>
+                  `;
+                  refsDiv.appendChild(refsHeader);
+                  
                   const refList = document.createElement('div');
                   refList.className = 'ai-tool-search-ref-list';
-                  refs.forEach(ref => {
-                    const refItem = document.createElement('a');
+                  
+                  refs.forEach((ref, index) => {
+                    const refItem = document.createElement('div');
                     refItem.className = 'ai-tool-search-ref-item';
-                    refItem.href = ref.url;
-                    refItem.target = '_blank';
-                    refItem.rel = 'noopener noreferrer';
-                    refItem.innerHTML = `
-                      <div class="ai-tool-search-ref-index">${ref.idIndex}</div>
-                      <div class="ai-tool-search-ref-content">
-                        <div class="ai-tool-search-ref-title">${escapeHtml(ref.name)}</div>
-                        <div class="ai-tool-search-ref-snippet">${escapeHtml(ref.snippet)}</div>
-                        <div class="ai-tool-search-ref-site">${escapeHtml(ref.siteName)}</div>
+                    
+                    // Compact view (always visible)
+                    const refCompact = document.createElement('div');
+                    refCompact.className = 'ai-tool-search-ref-compact';
+                    refCompact.innerHTML = `
+                      <div class="ai-tool-search-ref-header-row">
+                        <span class="ai-tool-search-ref-index">${ref.idIndex}</span>
+                        <a href="${ref.url}" target="_blank" rel="noopener noreferrer" class="ai-tool-search-ref-title-link" onclick="event.stopPropagation()">
+                          ${escapeHtml(ref.name)}
+                        </a>
                       </div>
                     `;
+                    
+                    // Expandable detail view
+                    const refDetail = document.createElement('div');
+                    refDetail.className = 'ai-tool-search-ref-detail';
+                    refDetail.style.display = 'none';
+                    refDetail.innerHTML = `
+                      <div class="ai-tool-search-ref-snippet">${escapeHtml(ref.snippet)}</div>
+                      <div class="ai-tool-search-ref-footer">
+                        <span class="ai-tool-search-ref-site">📄 ${escapeHtml(ref.siteName)}</span>
+                        <a href="${ref.url}" target="_blank" rel="noopener noreferrer" class="ai-tool-search-ref-link">
+                          访问链接 →
+                        </a>
+                      </div>
+                    `;
+                    
+                    refItem.appendChild(refCompact);
+                    refItem.appendChild(refDetail);
+                    
+                    // Toggle detail on click
+                    refCompact.addEventListener('click', (e) => {
+                      if (e.target.tagName !== 'A') {
+                        const isExpanded = refDetail.style.display !== 'none';
+                        refDetail.style.display = isExpanded ? 'none' : 'block';
+                        refItem.classList.toggle('expanded', !isExpanded);
+                      }
+                    });
+                    
                     refList.appendChild(refItem);
                   });
+                  
+                  // Toggle all functionality
+                  const toggleAllBtn = refsHeader.querySelector('.ai-tool-search-refs-toggle-all');
+                  toggleAllBtn.addEventListener('click', () => {
+                    const isExpanded = toggleAllBtn.dataset.expanded === 'true';
+                    const newState = !isExpanded;
+                    
+                    refList.querySelectorAll('.ai-tool-search-ref-detail').forEach(detail => {
+                      detail.style.display = newState ? 'block' : 'none';
+                    });
+                    
+                    refList.querySelectorAll('.ai-tool-search-ref-item').forEach(item => {
+                      item.classList.toggle('expanded', newState);
+                    });
+                    
+                    toggleAllBtn.dataset.expanded = newState;
+                    toggleAllBtn.textContent = newState ? '收起全部' : '展开全部';
+                  });
+                  
                   refsDiv.appendChild(refList);
                   content.appendChild(refsDiv);
                 }
