@@ -665,6 +665,58 @@ function updateMessageWithReasoningAndTools(messageId, reasoningContent, mainCon
   }
 }
 
+function extractMultipleJsonObjects(str) {
+  const objects = [];
+  let depth = 0;
+  let startIndex = -1;
+  let inString = false;
+  let escapeNext = false;
+  
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+    
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    
+    if (inString) {
+      continue;
+    }
+    
+    if (char === '{') {
+      if (depth === 0) {
+        startIndex = i;
+      }
+      depth++;
+    } else if (char === '}') {
+      depth--;
+      if (depth === 0 && startIndex !== -1) {
+        try {
+          const jsonStr = str.substring(startIndex, i + 1);
+          const obj = JSON.parse(jsonStr);
+          objects.push(obj);
+          startIndex = -1;
+        } catch (e) {
+          debugLog('解析单个JSON对象失败:', e);
+        }
+      }
+    }
+  }
+  
+  return objects;
+}
+
 function renderOnlineSearchTool(toolCall) {
   try {
     const args = toolCall.function.arguments;
@@ -675,7 +727,22 @@ function renderOnlineSearchTool(toolCall) {
       parsedArgs = JSON.parse(args);
     } catch (e) {
       debugLog('解析工具调用参数失败:', e, args);
-      return null;
+      // Try to extract and parse multiple JSON objects
+      try {
+        const jsonObjects = extractMultipleJsonObjects(args);
+        if (jsonObjects.length > 0) {
+          // Merge all parsed objects
+          parsedArgs = jsonObjects.reduce((acc, obj) => {
+            return { ...acc, ...obj };
+          }, {});
+          debugLog('成功从多个JSON对象中恢复解析:', parsedArgs);
+        } else {
+          return null;
+        }
+      } catch (e2) {
+        debugLog('尝试提取多个JSON对象也失败:', e2);
+        return null;
+      }
     }
     
     const toolDiv = document.createElement('div');
@@ -689,17 +756,39 @@ function renderOnlineSearchTool(toolCall) {
         debugLog('解析result数据成功:', resultData);
       } catch (e) {
         debugLog('解析result JSON失败:', e, parsedArgs.result);
-        // If result parsing fails, show progress instead
-        if (parsedArgs.progress) {
-          const progressDiv = document.createElement('div');
-          progressDiv.className = 'ai-tool-search-progress';
-          progressDiv.innerHTML = `
-            <div class="ai-tool-search-icon">🔍</div>
-            <div class="ai-tool-search-text">${escapeHtml(parsedArgs.progress)}</div>
-          `;
-          toolDiv.appendChild(progressDiv);
+        // Try to extract multiple JSON objects
+        try {
+          const jsonObjects = extractMultipleJsonObjects(parsedArgs.result);
+          if (jsonObjects.length > 0) {
+            // Use the last object as it's likely the most complete
+            resultData = jsonObjects[jsonObjects.length - 1];
+            debugLog('从多个JSON对象中恢复result解析:', resultData);
+          } else {
+            // If result parsing fails, show progress instead
+            if (parsedArgs.progress) {
+              const progressDiv = document.createElement('div');
+              progressDiv.className = 'ai-tool-search-progress';
+              progressDiv.innerHTML = `
+                <div class="ai-tool-search-icon">🔍</div>
+                <div class="ai-tool-search-text">${escapeHtml(parsedArgs.progress)}</div>
+              `;
+              toolDiv.appendChild(progressDiv);
+            }
+            return toolDiv;
+          }
+        } catch (e2) {
+          debugLog('尝试提取result中的多个JSON对象也失败:', e2);
+          if (parsedArgs.progress) {
+            const progressDiv = document.createElement('div');
+            progressDiv.className = 'ai-tool-search-progress';
+            progressDiv.innerHTML = `
+              <div class="ai-tool-search-icon">🔍</div>
+              <div class="ai-tool-search-text">${escapeHtml(parsedArgs.progress)}</div>
+            `;
+            toolDiv.appendChild(progressDiv);
+          }
+          return toolDiv;
         }
-        return toolDiv;
       }
       
       if (resultData && resultData.cardInfo) {
@@ -730,7 +819,22 @@ function renderOnlineSearchTool(toolCall) {
             if (item.type === '2001' && item.content) {
               // Search queries
               try {
-                const queries = JSON.parse(item.content);
+                let queries;
+                try {
+                  queries = JSON.parse(item.content);
+                } catch (e) {
+                  debugLog('解析搜索关键词失败，尝试提取多个JSON对象:', e);
+                  const jsonObjects = extractMultipleJsonObjects(item.content);
+                  if (jsonObjects.length > 0) {
+                    // Merge all arrays
+                    queries = jsonObjects.reduce((acc, obj) => {
+                      if (Array.isArray(obj)) {
+                        return acc.concat(obj);
+                      }
+                      return acc;
+                    }, []);
+                  }
+                }
                 debugLog('解析搜索关键词:', queries);
                 if (Array.isArray(queries) && queries.length > 0) {
                   const queriesDiv = document.createElement('div');
@@ -753,8 +857,23 @@ function renderOnlineSearchTool(toolCall) {
             } else if (item.type === '2002' && item.content) {
               // References
               try {
-                const refs = JSON.parse(item.content);
-                debugLog('解析参考资料，数量:', refs.length);
+                let refs;
+                try {
+                  refs = JSON.parse(item.content);
+                } catch (e) {
+                  debugLog('解析参考资料失败，尝试提取多个JSON对象:', e);
+                  const jsonObjects = extractMultipleJsonObjects(item.content);
+                  if (jsonObjects.length > 0) {
+                    // Merge all arrays
+                    refs = jsonObjects.reduce((acc, obj) => {
+                      if (Array.isArray(obj)) {
+                        return acc.concat(obj);
+                      }
+                      return acc;
+                    }, []);
+                  }
+                }
+                debugLog('解析参考资料，数量:', refs?.length);
                 if (Array.isArray(refs) && refs.length > 0) {
                   const refsDiv = document.createElement('div');
                   refsDiv.className = 'ai-tool-search-references';
